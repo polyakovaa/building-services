@@ -1,0 +1,207 @@
+package service
+
+import (
+	"building-services/auth-service/internal/model"
+	"building-services/auth-service/internal/repository"
+	"errors"
+	"fmt"
+	"log"
+	"net/mail"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
+)
+
+type AuthService struct {
+	userRepo   UserRepo
+	tokenRepo  TokenRepo
+	jwtSecret  string
+	accessTTL  time.Duration
+	refreshTTL time.Duration
+}
+
+func NewAuthService(
+	userRepo UserRepo,
+	tokenRepo TokenRepo,
+	secret string,
+	accessTTL, refreshTTL time.Duration,
+) *AuthService {
+	return &AuthService{
+		userRepo:   userRepo,
+		tokenRepo:  tokenRepo,
+		jwtSecret:  secret,
+		accessTTL:  accessTTL,
+		refreshTTL: refreshTTL,
+	}
+}
+
+type UserRepo interface {
+	CreateUser(u *model.User) (*model.User, error)
+	FindByID(id string) (*model.User, error)
+	FindByEmail(email string) (*model.User, error)
+}
+
+type TokenRepo interface {
+	SaveRefreshToken(userID, token string, ttl time.Duration) error
+	GetUserIDByRefreshToken(token string) (string, error)
+	DeleteRefreshToken(token string) error
+}
+
+var (
+	ErrInvalidEmailFormat = errors.New("invalid email format")
+	ErrPasswordTooShort   = errors.New("password too short")
+	ErrInvalidCredentials = errors.New("invalid email or password")
+	ErrInvalidAccessToken = errors.New("invalid access token")
+)
+
+func (s *AuthService) RegisterUser(username, email, password, role string) (*model.User, error) {
+
+	if !isValidEmail(email) {
+		return nil, ErrInvalidEmailFormat
+	}
+	if len(password) < 6 {
+		return nil, ErrPasswordTooShort
+	}
+
+	existingUser, err := s.userRepo.FindByEmail(email)
+	if err != nil && !errors.Is(err, repository.ErrUserNotFound) {
+		return nil, err
+	}
+
+	if existingUser != nil {
+		return nil, repository.ErrEmailAlreadyExists
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("hash password: %w", err)
+	}
+
+	u := &model.User{
+		UserName:     username,
+		Email:        email,
+		PasswordHash: string(hashed),
+		Role:         role,
+	}
+	user, err := s.userRepo.CreateUser(u)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	return user, nil
+
+}
+
+func isValidEmail(email string) bool {
+	_, err := mail.ParseAddress(email)
+	return err == nil
+}
+
+type AccessClaims struct {
+	Role string `json:"role"`
+	jwt.RegisteredClaims
+}
+
+func (s *AuthService) GenerateTokens(user *model.User) (*model.Token, time.Time, error) {
+	exp := time.Now().Add(s.accessTTL)
+
+	claims := AccessClaims{
+		Role: user.Role,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   user.ID,
+			ExpiresAt: jwt.NewNumericDate(exp),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+
+	access := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
+	accessToken, err := access.SignedString([]byte(s.jwtSecret))
+
+	if err != nil {
+		log.Printf("Error signing access token for user %s: %v", user.ID, err)
+		return nil, exp, err
+	}
+
+	refreshToken := uuid.NewString()
+
+	err = s.tokenRepo.SaveRefreshToken(user.ID, refreshToken, s.refreshTTL)
+	if err != nil {
+		return nil, exp, err
+	}
+
+	return &model.Token{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}, exp, nil
+
+}
+
+func (s *AuthService) GetUserByID(id string) (*model.User, error) {
+	return s.userRepo.FindByID(id)
+}
+
+func (s *AuthService) ValidateAccessToken(tokenStr string) (userID, role string, exp time.Time, err error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &AccessClaims{}, func(t *jwt.Token) (interface{}, error) {
+		return []byte(s.jwtSecret), nil
+	})
+	if err != nil {
+		return "", "", time.Time{}, ErrInvalidAccessToken
+	}
+
+	claims, ok := token.Claims.(*AccessClaims)
+	if !ok || !token.Valid {
+		return "", "", time.Time{}, ErrInvalidAccessToken
+	}
+
+	return claims.Subject, claims.Role, claims.ExpiresAt.Time, nil
+}
+
+func (s *AuthService) RefreshToken(oldToken string) (*model.Token, time.Time, error) {
+
+	userID, err := s.tokenRepo.GetUserIDByRefreshToken(oldToken)
+	if err != nil {
+		return nil, time.Time{}, repository.ErrInvalidRefreshToken
+	}
+
+	_ = s.tokenRepo.DeleteRefreshToken(oldToken)
+
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, time.Time{}, fmt.Errorf("find user by id: %w", err)
+	}
+
+	token, exp, err := s.GenerateTokens(user)
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+
+	return token, exp, nil
+}
+
+func (s *AuthService) Login(email, password string) (*model.User, *model.Token, time.Time, error) {
+	user, err := s.userRepo.FindByEmail(email)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, nil, time.Time{}, ErrInvalidCredentials
+		}
+		return nil, nil, time.Time{}, fmt.Errorf("find user by email: %w", err)
+	}
+
+	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)) != nil {
+		return nil, nil, time.Time{}, ErrInvalidCredentials
+	}
+
+	token, exp, err := s.GenerateTokens(user)
+	if err != nil {
+		return nil, nil, time.Time{}, err
+	}
+
+	return user, token, exp, nil
+}
+
+func (s *AuthService) Logout(refreshToken string) error {
+	return s.tokenRepo.DeleteRefreshToken(refreshToken)
+}

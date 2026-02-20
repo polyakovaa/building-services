@@ -1,0 +1,10 @@
+go 1.24.4
+
+use (
+	./
+	./analytics-service
+	./api-gateway
+	./auth-service
+	./notification-service
+	./task-service
+)

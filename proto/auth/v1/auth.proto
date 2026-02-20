@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package auth.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "gen/auth/v1;authv1";
+
+
+service AuthService {
+    rpc Register(RegisterRequest) returns (AuthResponse);
+    rpc Login(LoginRequest) returns (AuthResponse);
+    rpc Validate(ValidateTokenRequest) returns (ValidateTokenResponse);
+    rpc RefreshToken(RefreshTokenRequest) returns (AuthResponse);
+}
+
+enum Role {
+    ROLE_UNSPECIFIED = 0;
+    ROLE_DIRECTOR = 1;
+    ROLE_PROJECT_MANAGER = 2;
+    ROLE_DEPARTMENT_MANAGER = 3;
+    ROLE_GIP = 4;
+    ROLE_WORKER = 5;
+}
+
+
+message RegisterRequest {
+    string email = 1;
+    string password = 2;
+    string user_name = 3;
+    Role role = 4;
+}
+
+
+message LoginRequest {
+    string email = 1;
+    string password = 2;
+}
+
+message ValidateTokenRequest {
+    string token = 1;
+}
+
+
+message RefreshTokenRequest {
+    string refresh_token = 1;
+}
+
+message AuthResponse {
+    string access_token = 1;
+    string refresh_token = 2;
+    google.protobuf.Timestamp expires_at = 3;
+    string user_id = 4;
+    Role role = 5;
+}
+
+message ValidateTokenResponse {
+    bool valid = 1;
+    string user_id = 2;
+    Role role = 5;
+    google.protobuf.Timestamp expires_at = 6;
+}
