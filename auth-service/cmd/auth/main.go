@@ -5,8 +5,13 @@ import (
 	"building-services/auth-service/internal/handler"
 	"building-services/auth-service/internal/repository"
 	"building-services/auth-service/internal/service"
+	"context"
 	"log"
 	"net"
+	"time"
+
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
 	authv1 "building-services/gen/auth/v1"
 
@@ -52,8 +57,29 @@ func main() {
 	grpcServer := grpc.NewServer()
 
 	authv1.RegisterAuthServiceServer(grpcServer, authHandler)
+	healthServer := health.NewServer()
+	healthpb.RegisterHealthServer(grpcServer, healthServer)
+	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 
 	log.Printf("Auth service running on :%s", cfg.Server.Port)
+
+	go func() {
+		for {
+			ctx := context.Background()
+
+			dbErr := db.PingContext(ctx)
+			redisErr := rdb.Ping(ctx).Err()
+
+			if dbErr != nil || redisErr != nil {
+				healthServer.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
+			} else {
+				healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
+			}
+
+			time.Sleep(5 * time.Second)
+		}
+	}()
+
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}

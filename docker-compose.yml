@@ -1,4 +1,15 @@
 services:
+  gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - auth-service
+    networks:
+      - backend
 
   auth_db:
     image: postgres:16
