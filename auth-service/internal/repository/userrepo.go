@@ -26,11 +26,11 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 }
 
 func (r *UserRepository) CreateUser(u *model.User) (*model.User, error) {
-	query := `INSERT INTO users (username, role, email, password_hash) VALUES ($1, $2, $3, $4) RETURNING id`
+	query := `INSERT INTO users (full_name, role, email, password_hash) VALUES ($1, $2, $3, $4) RETURNING id`
 
 	if err := r.db.QueryRow(
 		query,
-		u.UserName,
+		u.FullName,
 		u.Role,
 		u.Email,
 		u.PasswordHash,
@@ -46,11 +46,11 @@ func (r *UserRepository) CreateUser(u *model.User) (*model.User, error) {
 
 func (r *UserRepository) FindByID(id string) (*model.User, error) {
 	u := &model.User{}
-	query := `SELECT id, role, username, email, password_hash FROM users WHERE id = $1`
+	query := `SELECT id, role, full_name, email, password_hash FROM users WHERE id = $1`
 	if err := r.db.QueryRow(query, id).Scan(
 		&u.ID,
 		&u.Role,
-		&u.UserName,
+		&u.FullName,
 		&u.Email,
 		&u.PasswordHash,
 	); err != nil {
@@ -64,11 +64,11 @@ func (r *UserRepository) FindByID(id string) (*model.User, error) {
 
 func (r *UserRepository) FindByEmail(email string) (*model.User, error) {
 	u := &model.User{}
-	query := `SELECT id, role, username, email, password_hash FROM users WHERE email = $1`
+	query := `SELECT id, role, full_name, email, password_hash FROM users WHERE email = $1`
 	if err := r.db.QueryRow(query, email).Scan(
 		&u.ID,
 		&u.Role,
-		&u.UserName,
+		&u.FullName,
 		&u.Email,
 		&u.PasswordHash,
 	); err != nil {

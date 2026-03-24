@@ -20,7 +20,7 @@ redis:
   db: 0
 
 jwt:
-  secret: "secret-key"
+  secret: "secret"
   access_ttl: "15m" 
   refresh_ttl: "168h"
 

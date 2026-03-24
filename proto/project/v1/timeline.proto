@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package project.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "gen/project/v1;projectv1";
+
+
+service ProjectTimelineService {
+    rpc GetTimeline(GetTimelineRequest) returns (ProjectTimeline);
+    rpc UpdateTimeline(UpdateTimelineRequest) returns (ProjectTimeline);
+}
+
+message ProjectTimeline {
+    string project_id = 1;
+    google.protobuf.Timestamp contract_date = 2;
+    google.protobuf.Timestamp work_start_date = 3;
+    google.protobuf.Timestamp work_end_date = 4;
+    google.protobuf.Timestamp handover_date = 5;
+    google.protobuf.Timestamp comments_date = 6;
+    google.protobuf.Timestamp comments_fixed_date = 7;
+    google.protobuf.Timestamp acceptance_date = 8;
+    google.protobuf.Timestamp final_payment_date = 9;
+    google.protobuf.Timestamp updated_at = 10;
+    string updated_by = 11;
+}
+
+
+message GetTimelineRequest {
+    string project_id = 1;
+}
+
+message UpdateTimelineRequest {
+    string project_id = 1;
+    google.protobuf.Timestamp contract_date = 2;
+    google.protobuf.Timestamp work_start_date = 3;
+    google.protobuf.Timestamp work_end_date = 4;
+    google.protobuf.Timestamp handover_date = 5;
+    google.protobuf.Timestamp comments_date = 6;
+    google.protobuf.Timestamp comments_fixed_date = 7;
+    google.protobuf.Timestamp acceptance_date = 8;
+    google.protobuf.Timestamp final_payment_date = 9;
+}

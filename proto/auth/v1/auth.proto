@@ -10,7 +10,6 @@ option go_package = "gen/auth/v1;authv1";
 service AuthService {
     rpc Register(RegisterRequest) returns (AuthResponse);
     rpc Login(LoginRequest) returns (AuthResponse);
-    rpc Validate(ValidateTokenRequest) returns (ValidateTokenResponse);
     rpc RefreshToken(RefreshTokenRequest) returns (AuthResponse);
 }
 
@@ -27,7 +26,7 @@ enum Role {
 message RegisterRequest {
     string email = 1;
     string password = 2;
-    string user_name = 3;
+    string full_name = 3;
     Role role = 4;
 }
 
@@ -35,10 +34,6 @@ message RegisterRequest {
 message LoginRequest {
     string email = 1;
     string password = 2;
-}
-
-message ValidateTokenRequest {
-    string token = 1;
 }
 
 
@@ -52,11 +47,4 @@ message AuthResponse {
     google.protobuf.Timestamp expires_at = 3;
     string user_id = 4;
     Role role = 5;
-}
-
-message ValidateTokenResponse {
-    bool valid = 1;
-    string user_id = 2;
-    Role role = 5;
-    google.protobuf.Timestamp expires_at = 6;
 }

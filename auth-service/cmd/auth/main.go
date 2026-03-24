@@ -2,6 +2,7 @@ package main
 
 import (
 	"building-services/auth-service/config"
+	"building-services/auth-service/internal/events"
 	"building-services/auth-service/internal/handler"
 	"building-services/auth-service/internal/repository"
 	"building-services/auth-service/internal/service"
@@ -40,12 +41,19 @@ func main() {
 
 	tokenRepo := repository.NewRedisTokenRepository(rdb)
 
+	eventPublisher, err := events.NewEventPublisher("amqp://guest:guest@rabbitmq:5672/")
+	if err != nil {
+		log.Fatalf("Failed to create publisher: %v", err)
+	}
+	defer eventPublisher.Close()
+
 	authService := service.NewAuthService(
 		userRepo,
 		tokenRepo,
 		cfg.JWT.Secret,
 		cfg.JWT.AccessTTL,
 		cfg.JWT.RefreshTTL,
+		eventPublisher,
 	)
 
 	authHandler := handler.NewAuthHandler(authService)

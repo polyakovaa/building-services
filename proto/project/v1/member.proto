@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package project.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "gen/project/v1;projectv1";
+
+
+service ProjectMemberService {
+    rpc AddMember(AddMemberRequest) returns (ProjectMember);
+    rpc UpdateMember(UpdateMemberRequest) returns (ProjectMember);
+    rpc RemoveMember(RemoveMemberRequest) returns (google.protobuf.Empty);
+    rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
+    rpc GetMember(GetMemberRequest) returns (ProjectMember);
+}
+
+message ProjectMember {
+    string project_id = 1;
+    string user_id = 2;
+    string department_id = 4;
+    google.protobuf.Timestamp joined_at = 5;
+}
+
+
+message AddMemberRequest {
+    string project_id = 1;
+    string user_id = 2;
+    string department_id = 4;
+}
+
+message UpdateMemberRequest {
+    string project_id = 1;
+    string user_id = 2;
+    string department_id = 4;
+}
+
+message RemoveMemberRequest {
+    string project_id = 1;
+    string user_id = 2;
+}
+
+message ListMembersRequest {
+    string project_id = 1;
+}
+
+message ListMembersResponse {
+    repeated ProjectMember members = 1;
+}
+
+message GetMemberRequest {
+    string project_id = 1;
+    string user_id = 2;
+}
+
+message GetProjectManagerRequest {
+    string project_id = 1;
+}
+

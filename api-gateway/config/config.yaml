@@ -6,7 +6,10 @@ services:
   auth:
     address: "dns:///auth_service:50051"
     timeout: 5s
+  project:
+    address: "dns:///project_service:50052"
+    timeout: 5s
 
-
+jwt_secret: "secret"
 logging:
   level: "info"

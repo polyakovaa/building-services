@@ -25,7 +25,7 @@ func NewAuthHandler(s *service.AuthService) *AuthHandler {
 func (h *AuthHandler) Register(ctx context.Context, req *authv1.RegisterRequest) (*authv1.AuthResponse, error) {
 	role := req.Role.String()
 
-	user, err := h.authService.RegisterUser(req.UserName, req.Email, req.Password, role)
+	user, err := h.authService.RegisterUser(ctx, req.FullName, req.Email, req.Password, role)
 
 	if err != nil {
 		log.Printf("Failed to register user %v", err)
@@ -63,43 +63,16 @@ func (h *AuthHandler) Login(ctx context.Context, req *authv1.LoginRequest) (*aut
 	}, nil
 }
 
-func (h *AuthHandler) Validate(ctx context.Context, req *authv1.ValidateTokenRequest) (*authv1.ValidateTokenResponse, error) {
-
-	userID, role, exp, err := h.authService.ValidateAccessToken(req.Token)
-	if err != nil {
-		return &authv1.ValidateTokenResponse{
-			Valid: false,
-		}, nil
-	}
-	user, err := h.authService.GetUserByID(userID)
-	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to get user")
-	}
-
-	return &authv1.ValidateTokenResponse{
-		Valid:     true,
-		UserId:    user.ID,
-		ExpiresAt: timestamppb.New(exp),
-		Role:      authv1.Role(authv1.Role_value[role]),
-	}, nil
-}
-
 func (h *AuthHandler) RefreshToken(ctx context.Context, req *authv1.RefreshTokenRequest) (*authv1.AuthResponse, error) {
-	tokens, exp, err := h.authService.RefreshToken(req.RefreshToken)
+	user, tokens, exp, err := h.authService.RefreshToken(req.RefreshToken)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
-
-	userID, role, _, err := h.authService.ValidateAccessToken(tokens.AccessToken)
-	if err != nil {
-		return nil, status.Error(codes.Internal, "invalid new token")
-	}
-
 	return &authv1.AuthResponse{
 		AccessToken:  tokens.AccessToken,
 		RefreshToken: tokens.RefreshToken,
-		UserId:       userID,
 		ExpiresAt:    timestamppb.New(exp),
-		Role:         authv1.Role(authv1.Role_value[role]),
+		UserId:       user.ID,
+		Role:         authv1.Role(authv1.Role_value[user.Role]),
 	}, nil
 }

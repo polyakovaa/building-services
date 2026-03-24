@@ -4,6 +4,7 @@ import (
 	"building-services/auth-service/internal/model"
 	"building-services/auth-service/internal/repository"
 	"building-services/auth-service/internal/service"
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -49,6 +50,43 @@ func (m *MockUserRepo) FindByID(email string) (*model.User, error) {
 
 func (m *MockUserRepo) CreateUser(u *model.User) (*model.User, error) {
 	return u, nil
+}
+
+type MockPublisher struct {
+	CreatedCalls []UserData
+	UpdatedCalls []UserData
+	ShouldFail   bool
+}
+
+type UserData struct {
+	UserID   string
+	Email    string
+	FullName string
+	Role     string
+}
+
+func (m *MockPublisher) PublishUserCreated(ctx context.Context, userID, email, fullName, role string) error {
+	m.CreatedCalls = append(m.CreatedCalls, UserData{
+		UserID: userID, Email: email, FullName: fullName, Role: role,
+	})
+	if m.ShouldFail {
+		return errors.New("mock error")
+	}
+	return nil
+}
+
+func (m *MockPublisher) PublishUserUpdated(ctx context.Context, userID, email, fullName, role string) error {
+	m.UpdatedCalls = append(m.UpdatedCalls, UserData{
+		UserID: userID, Email: email, FullName: fullName, Role: role,
+	})
+	if m.ShouldFail {
+		return errors.New("mock error")
+	}
+	return nil
+}
+
+func (m *MockPublisher) Close() error {
+	return nil
 }
 
 func TestLogin(t *testing.T) {
@@ -111,6 +149,7 @@ func TestLogin(t *testing.T) {
 			} else {
 				mockUserRepo.Err = repository.ErrUserNotFound
 			}
+			mockPublisher := &MockPublisher{}
 
 			authService := service.NewAuthService(
 				mockUserRepo,
@@ -118,6 +157,7 @@ func TestLogin(t *testing.T) {
 				"secret",
 				15*time.Minute,
 				24*time.Hour,
+				mockPublisher,
 			)
 
 			user, token, exp, err := authService.Login(tt.email, tt.password)
@@ -208,9 +248,10 @@ func TestRegisterUser(t *testing.T) {
 				"secret",
 				15*time.Minute,
 				24*time.Hour,
+				&MockPublisher{},
 			)
 
-			user, err := authService.RegisterUser(tt.userName, tt.email, tt.password, tt.role)
+			user, err := authService.RegisterUser(context.Background(), tt.userName, tt.email, tt.password, tt.role)
 
 			if tt.expectedError != nil {
 				require.Error(t, err)
@@ -231,7 +272,7 @@ func TestGenerateTokens_Success(t *testing.T) {
 	user := model.User{
 		ID:       "1",
 		Email:    "test@mail.ru",
-		UserName: "testuser",
+		FullName: "testuser",
 		Role:     "ROLE_WORKER",
 	}
 	mockUserRepo := &MockUserRepo{}
@@ -245,6 +286,7 @@ func TestGenerateTokens_Success(t *testing.T) {
 		"secret",
 		15*time.Minute,
 		24*time.Hour,
+		&MockPublisher{},
 	)
 
 	token, exp, err := authService.GenerateTokens(mockUserRepo.User)
@@ -275,7 +317,7 @@ func TestGenerateTokens_SaveRefreshErr(t *testing.T) {
 	user := &model.User{
 		ID:       "1",
 		Email:    "test@mail.ru",
-		UserName: "testuser",
+		FullName: "testuser",
 		Role:     "ROLE_WORKER",
 	}
 	mockTokenRepo := &MockTokenRepo{
@@ -288,83 +330,11 @@ func TestGenerateTokens_SaveRefreshErr(t *testing.T) {
 		"secret",
 		15*time.Minute,
 		24*time.Hour,
+		&MockPublisher{},
 	)
 
 	token, exp, err := authService.GenerateTokens(user)
 	require.Error(t, err)
 	require.Nil(t, token)
 	require.False(t, exp.IsZero())
-}
-
-func TestValidateAccessToken(t *testing.T) {
-	tests := []struct {
-		name          string
-		userID        string
-		role          string
-		secret        string
-		exp           time.Time
-		expectedError error
-	}{
-		{
-			name:          "valid user",
-			userID:        "1",
-			role:          "ROLE_WORKER",
-			secret:        "secret",
-			exp:           time.Now().Add(1 * time.Hour),
-			expectedError: nil,
-		},
-		{
-			name:          "wrong secret",
-			userID:        "1",
-			role:          "ROLE_WORKER",
-			secret:        "wrong secret",
-			exp:           time.Now().Add(1 * time.Hour),
-			expectedError: service.ErrInvalidAccessToken,
-		},
-		{
-			name:          "expired",
-			userID:        "1",
-			role:          "ROLE_WORKER",
-			secret:        "secret",
-			exp:           time.Now().Add(-1 * time.Hour),
-			expectedError: service.ErrInvalidAccessToken,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			claims := service.AccessClaims{
-				Role: tt.role,
-				RegisteredClaims: jwt.RegisteredClaims{
-					Subject:   tt.userID,
-					ExpiresAt: jwt.NewNumericDate(tt.exp),
-					IssuedAt:  jwt.NewNumericDate(time.Now()),
-				},
-			}
-			authService := service.NewAuthService(
-				nil,
-				nil,
-				"secret",
-				15*time.Minute,
-				24*time.Hour,
-			)
-
-			access := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
-			accessToken, _ := access.SignedString([]byte(tt.secret))
-
-			sub, role, exp, err := authService.ValidateAccessToken(accessToken)
-			if tt.expectedError != nil {
-				require.Error(t, err)
-				require.ErrorIs(t, err, tt.expectedError)
-				return
-			}
-
-			require.NoError(t, err)
-			require.False(t, exp.IsZero())
-			assert.Equal(t, tt.userID, sub)
-			assert.Equal(t, tt.role, role)
-
-		})
-	}
-
 }

@@ -1,8 +1,10 @@
 package service
 
 import (
+	"building-services/auth-service/internal/events"
 	"building-services/auth-service/internal/model"
 	"building-services/auth-service/internal/repository"
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -15,11 +17,12 @@ import (
 )
 
 type AuthService struct {
-	userRepo   UserRepo
-	tokenRepo  TokenRepo
-	jwtSecret  string
-	accessTTL  time.Duration
-	refreshTTL time.Duration
+	userRepo       UserRepo
+	tokenRepo      TokenRepo
+	jwtSecret      string
+	accessTTL      time.Duration
+	refreshTTL     time.Duration
+	eventPublisher events.Publisher
 }
 
 func NewAuthService(
@@ -27,13 +30,15 @@ func NewAuthService(
 	tokenRepo TokenRepo,
 	secret string,
 	accessTTL, refreshTTL time.Duration,
+	eventPublisher events.Publisher,
 ) *AuthService {
 	return &AuthService{
-		userRepo:   userRepo,
-		tokenRepo:  tokenRepo,
-		jwtSecret:  secret,
-		accessTTL:  accessTTL,
-		refreshTTL: refreshTTL,
+		userRepo:       userRepo,
+		tokenRepo:      tokenRepo,
+		jwtSecret:      secret,
+		accessTTL:      accessTTL,
+		refreshTTL:     refreshTTL,
+		eventPublisher: eventPublisher,
 	}
 }
 
@@ -49,6 +54,11 @@ type TokenRepo interface {
 	DeleteRefreshToken(token string) error
 }
 
+type AccessClaims struct {
+	Role string `json:"role"`
+	jwt.RegisteredClaims
+}
+
 var (
 	ErrInvalidEmailFormat = errors.New("invalid email format")
 	ErrPasswordTooShort   = errors.New("password too short")
@@ -56,13 +66,16 @@ var (
 	ErrInvalidAccessToken = errors.New("invalid access token")
 )
 
-func (s *AuthService) RegisterUser(username, email, password, role string) (*model.User, error) {
+func (s *AuthService) RegisterUser(ctx context.Context, username, email, password, role string) (*model.User, error) {
 
 	if !isValidEmail(email) {
 		return nil, ErrInvalidEmailFormat
 	}
 	if len(password) < 6 {
 		return nil, ErrPasswordTooShort
+	}
+	if username == "" {
+		return nil, fmt.Errorf("full name required")
 	}
 
 	existingUser, err := s.userRepo.FindByEmail(email)
@@ -79,8 +92,10 @@ func (s *AuthService) RegisterUser(username, email, password, role string) (*mod
 		return nil, fmt.Errorf("hash password: %w", err)
 	}
 
+	log.Printf("Creating user: name=%s, email=%s", username, email)
+
 	u := &model.User{
-		UserName:     username,
+		FullName:     username,
 		Email:        email,
 		PasswordHash: string(hashed),
 		Role:         role,
@@ -91,6 +106,10 @@ func (s *AuthService) RegisterUser(username, email, password, role string) (*mod
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
+	if err := s.eventPublisher.PublishUserCreated(ctx, user.ID, user.Email, user.FullName, user.Role); err != nil {
+		log.Printf("Failed to publish event: %v", err)
+	}
+
 	return user, nil
 
 }
@@ -98,11 +117,6 @@ func (s *AuthService) RegisterUser(username, email, password, role string) (*mod
 func isValidEmail(email string) bool {
 	_, err := mail.ParseAddress(email)
 	return err == nil
-}
-
-type AccessClaims struct {
-	Role string `json:"role"`
-	jwt.RegisteredClaims
 }
 
 func (s *AuthService) GenerateTokens(user *model.User) (*model.Token, time.Time, error) {
@@ -143,42 +157,26 @@ func (s *AuthService) GetUserByID(id string) (*model.User, error) {
 	return s.userRepo.FindByID(id)
 }
 
-func (s *AuthService) ValidateAccessToken(tokenStr string) (userID, role string, exp time.Time, err error) {
-	token, err := jwt.ParseWithClaims(tokenStr, &AccessClaims{}, func(t *jwt.Token) (interface{}, error) {
-		return []byte(s.jwtSecret), nil
-	})
-	if err != nil {
-		return "", "", time.Time{}, ErrInvalidAccessToken
-	}
-
-	claims, ok := token.Claims.(*AccessClaims)
-	if !ok || !token.Valid {
-		return "", "", time.Time{}, ErrInvalidAccessToken
-	}
-
-	return claims.Subject, claims.Role, claims.ExpiresAt.Time, nil
-}
-
-func (s *AuthService) RefreshToken(oldToken string) (*model.Token, time.Time, error) {
+func (s *AuthService) RefreshToken(oldToken string) (*model.User, *model.Token, time.Time, error) {
 
 	userID, err := s.tokenRepo.GetUserIDByRefreshToken(oldToken)
 	if err != nil {
-		return nil, time.Time{}, repository.ErrInvalidRefreshToken
+		return nil, nil, time.Time{}, repository.ErrInvalidRefreshToken
 	}
 
 	_ = s.tokenRepo.DeleteRefreshToken(oldToken)
 
 	user, err := s.userRepo.FindByID(userID)
 	if err != nil {
-		return nil, time.Time{}, fmt.Errorf("find user by id: %w", err)
+		return nil, nil, time.Time{}, fmt.Errorf("find user by id: %w", err)
 	}
 
 	token, exp, err := s.GenerateTokens(user)
 	if err != nil {
-		return nil, time.Time{}, err
+		return nil, nil, time.Time{}, err
 	}
 
-	return token, exp, nil
+	return user, token, exp, nil
 }
 
 func (s *AuthService) Login(email, password string) (*model.User, *model.Token, time.Time, error) {

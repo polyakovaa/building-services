@@ -1,0 +1,98 @@
+syntax = "proto3";
+
+package project.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "gen/project/v1;projectv1";
+
+
+
+service TaskService {
+    rpc CreateTask(CreateTaskRequest) returns (Task);
+    rpc GetTask(GetTaskRequest) returns (Task);
+    rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+    rpc UpdateTask(UpdateTaskRequest) returns (Task);
+    rpc DeleteTask(DeleteTaskRequest) returns (google.protobuf.Empty);
+    rpc UpdateTaskStatus(UpdateTaskStatusRequest) returns (Task);
+    rpc AssignTask(AssignTaskRequest) returns (Task);
+}
+message Task {
+    string id = 1;
+    string project_id = 2;
+    string title = 3;
+    string description = 4;
+    TaskStatus status = 5;
+    TaskPriority priority = 6;
+    google.protobuf.Timestamp deadline = 7;
+    string assigned_to = 8;
+    string created_by = 9;
+    string parent_task_id = 10;
+    google.protobuf.Timestamp created_at = 11;
+    google.protobuf.Timestamp updated_at = 12;
+}
+
+enum TaskStatus {
+    TASK_STATUS_UNSPECIFIED = 0;
+    TASK_STATUS_TODO = 1;
+    TASK_STATUS_IN_PROGRESS = 2;
+    TASK_STATUS_COMPLETED = 3;
+    TASK_STATUS_BLOCKED = 4;
+}
+
+enum TaskPriority {
+    TASK_PRIORITY_UNSPECIFIED = 0;
+    TASK_PRIORITY_LOW = 1;
+    TASK_PRIORITY_MEDIUM = 2;
+    TASK_PRIORITY_HIGH = 3;
+    TASK_PRIORITY_URGENT = 4;
+}
+message CreateTaskRequest {
+    string project_id = 1;
+    string title = 2;
+    string description = 3;
+    google.protobuf.Timestamp deadline = 4;
+    string assigned_to = 5;
+    string parent_task_id = 6;
+    TaskPriority priority = 7;
+}
+
+message GetTaskRequest {
+    string id = 1;
+}
+
+
+message ListTasksRequest {
+    string project_id = 1;
+    TaskStatus status_filter = 2;
+    string assigned_to_filter = 3;
+    string parent_task_id = 4;
+}
+
+message ListTasksResponse {
+    repeated Task tasks = 1;
+    int32 total_count = 2;
+}
+
+message UpdateTaskRequest {
+    string id = 1;
+    string title = 2;
+    string description = 3;
+    google.protobuf.Timestamp deadline = 4;
+    TaskPriority priority = 5;
+}
+
+message UpdateTaskStatusRequest {
+    string id = 1;
+    TaskStatus status = 2;
+}
+
+message AssignTaskRequest {
+    string task_id = 1;
+    string assignee_id = 2;
+}
+
+message DeleteTaskRequest {
+    string id = 1;
+}

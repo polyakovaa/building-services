@@ -2,6 +2,7 @@ package handler
 
 import (
 	authv1 "building-services/gen/auth/v1"
+	"context"
 	"fmt"
 	"net/url"
 	"time"
@@ -13,10 +14,11 @@ import (
 
 type AuthHandler struct {
 	authClient authv1.AuthServiceClient
+	jwtSecret  string
 }
 
-func NewAuthHandler(authClient authv1.AuthServiceClient) *AuthHandler {
-	return &AuthHandler{authClient: authClient}
+func NewAuthHandler(authClient authv1.AuthServiceClient, jwtSecret string) *AuthHandler {
+	return &AuthHandler{authClient: authClient, jwtSecret: jwtSecret}
 }
 
 func (h *AuthHandler) RegisterRoutes(r *gin.Engine) {
@@ -34,7 +36,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	var request struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
-		UserName string `json:"user_name"`
+		FullName string `json:"full_name"`
 		Role     string `json:"role"`
 	}
 	if err := c.BindJSON(&request); err != nil {
@@ -48,10 +50,13 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	response, err := h.authClient.Register(c.Request.Context(), &authv1.RegisterRequest{
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	response, err := h.authClient.Register(ctx, &authv1.RegisterRequest{
 		Email:    request.Email,
 		Password: request.Password,
-		UserName: request.UserName,
+		FullName: request.FullName,
 		Role:     role,
 	})
 	if err != nil {
@@ -138,6 +143,8 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 	c.JSON(200, gin.H{
 		"access_token": response.AccessToken,
 		"expires_at":   response.ExpiresAt.AsTime().Format(time.RFC3339),
+		"user_id":      response.UserId,
+		"role":         response.Role.String(),
 	})
 }
 

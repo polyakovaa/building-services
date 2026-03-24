@@ -4,6 +4,7 @@ import (
 	"building-services/api-gateway/config"
 	"building-services/api-gateway/internal/clients"
 	"building-services/api-gateway/internal/handler"
+	"building-services/api-gateway/internal/middleware"
 	"building-services/api-gateway/internal/server"
 
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -25,20 +26,36 @@ func NewApp(cfg *config.GatewayConfig) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	authHandler := handler.NewAuthHandler(authClient)
-
+	authHandler := handler.NewAuthHandler(authClient, cfg.JWTSecret)
 	authHealthClient := healthpb.NewHealthClient(authConn)
 
+	projectServiceCfg, err := cfg.GetServiceConfig("project")
+	if err != nil {
+		return nil, err
+	}
+
+	projectClient, projectConn, err := clients.NewProjectClient(projectServiceCfg.Address)
+	if err != nil {
+		return nil, err
+	}
+	projectHandler := handler.NewProjectHandler(projectClient)
+	projectHealthClient := healthpb.NewHealthClient(projectConn)
+
 	healthHandler := handler.NewHealthHandler([]handler.ServiceHealth{
-		{
-			Name:   "auth",
-			Client: authHealthClient,
-		},
+		{Name: "auth", Client: authHealthClient},
+		{Name: "project", Client: projectHealthClient},
 	})
+
+	authMiddleware := middleware.AuthRequired(cfg.JWTSecret)
 
 	registerRoutes := func(r *gin.Engine) {
 		authHandler.RegisterRoutes(r)
 		healthHandler.RegisterRoutes(r)
+		protected := r.Group("/api")
+		protected.Use(authMiddleware)
+		{
+			projectHandler.RegisterRoutes(protected)
+		}
 	}
 
 	srv := server.NewServer(cfg.Server, registerRoutes)

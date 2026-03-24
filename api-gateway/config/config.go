@@ -9,9 +9,10 @@ import (
 )
 
 type GatewayConfig struct {
-	Server   ServerConfig             `yaml:"server"`
-	Services map[string]ServiceConfig `yaml:"services"`
-	Logging  LoggingConfig            `yaml:"logging"`
+	Server    ServerConfig             `yaml:"server"`
+	Services  map[string]ServiceConfig `yaml:"services"`
+	Logging   LoggingConfig            `yaml:"logging"`
+	JWTSecret string                   `yaml:"jwt_secret"`
 }
 
 type ServerConfig struct {
