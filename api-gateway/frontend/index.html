@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Building Services</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="tabs">
+            <button class="tab active" data-tab="login">Вход</button>
+            <button class="tab" data-tab="register">Регистрация</button>
+        </div>
+
+        <div id="loginForm" class="form active">
+            <h2>Добро пожаловать</h2>
+            <p class="subtitle">Войдите в систему</p>
+            
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="loginEmail" placeholder="example@mail.ru">
+            </div>
+            <div class="form-group">
+                <label>Пароль</label>
+                <input type="password" id="loginPassword" placeholder="*******">
+            </div>
+            <button id="loginBtn">Войти</button>
+            <div id="loginMessage"></div>
+        </div>
+
+        <div id="registerForm" class="form">
+            <h2>Создать аккаунт</h2>
+            <p class="subtitle">Зарегистрируйтесь в системе</p>
+            
+            <div class="form-group">
+                <label>ФИО</label>
+                <input type="text" id="regFullName" placeholder="ФИО">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="regEmail" placeholder="example@mail.ru">
+            </div>
+            <div class="form-group">
+                <label>Пароль</label>
+                <input type="password" id="regPassword" placeholder="*******">
+            </div>
+            <div class="form-group">
+                <label>Роль</label>
+                <select id="regRole">
+                    <option value="ROLE_WORKER">Инженер</option>
+                    <option value="ROLE_PROJECT_MANAGER">Проектный менеджер</option>
+                    <option value="ROLE_DEPARTMENT_MANAGER">Руководитель отдела</option>
+                    <option value="ROLE_GIP">ГИП</option>
+                    <option value="ROLE_DIRECTOR">Директор</option>
+                </select>
+            </div>
+            <button id="registerBtn">Зарегистрироваться</button>
+            <div id="registerMessage"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8080';
+
+        function getAuthErrorMessage(errorText) {
+            const errorMap = {
+                'invalid credentials': 'Неверный email или пароль',
+                'email already exists': 'Пользователь с таким email уже существует',
+                'user not found': 'Пользователь не найден',
+                'password too short': 'Слишком простой пароль',
+                'invalid email': 'Неверный формат email',
+                'full name required': 'Укажите ФИО',
+                'email required': 'Укажите email',
+                'password required': 'Укажите пароль'
+            };
+            
+            return errorMap[errorText.toLowerCase()] || errorText || 'Ошибка';
+        }
+
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.dataset.tab;
+                
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                document.querySelectorAll('.form').forEach(f => f.classList.remove('active'));
+                document.getElementById(`${tabName}Form`).classList.add('active');
+    
+                document.getElementById('loginMessage').innerHTML = '';
+                document.getElementById('registerMessage').innerHTML = '';
+            });
+        });
+
+        document.getElementById('loginBtn').addEventListener('click', async () => {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const messageDiv = document.getElementById('loginMessage');
+            
+            if (!email || !password) {
+                messageDiv.innerHTML = '<div class="message error">Заполните все поля</div>';
+                return;
+            }
+            
+            messageDiv.innerHTML = '<div class="loading">Вход...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    localStorage.setItem('access_token', data.access_token);
+                    localStorage.setItem('user_id', data.user_id);
+                    localStorage.setItem('user_role', data.role);
+                    messageDiv.innerHTML = '<div class="message success">Успешный вход! Перенаправление...</div>';
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1000);
+                } else {
+                    const data = await response.json();
+                    const errorMsg = getAuthErrorMessage(data.error || data.message || 'Ошибка входа');
+                    messageDiv.innerHTML = `<div class="message error">${errorMsg}</div>`;
+                }
+            } catch (err) {
+                messageDiv.innerHTML = '<div class="message error">Ошибка соединения с сервером</div>';
+            }
+        });
+
+        document.getElementById('registerBtn').addEventListener('click', async () => {
+            const fullName = document.getElementById('regFullName').value;
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            const role = document.getElementById('regRole').value;
+            const messageDiv = document.getElementById('registerMessage');
+            
+            if (!fullName || !email || !password) {
+                messageDiv.innerHTML = '<div class="message error">Заполните все поля</div>';
+                return;
+            }
+            
+            messageDiv.innerHTML = '<div class="loading">Регистрация...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        full_name: fullName,
+                        email: email,
+                        password: password,
+                        role: role
+                    }),
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    messageDiv.innerHTML = '<div class="message success">Регистрация успешна! Теперь войдите.</div>';
+                    setTimeout(() => {
+                        document.querySelector('.tab[data-tab="login"]').click();
+                        document.getElementById('loginEmail').value = email;
+                    }, 1500);
+                } else {
+                    const data = await response.json();
+                    const errorMsg = getAuthErrorMessage(data.error || data.message || 'Ошибка регистрации');
+                    messageDiv.innerHTML = `<div class="message error">${errorMsg}</div>`;
+                }
+            } catch (err) {
+                messageDiv.innerHTML = '<div class="message error">Ошибка соединения с сервером</div>';
+            }
+        });
+    </script>
+</body>
+</html>

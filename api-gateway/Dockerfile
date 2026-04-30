@@ -13,6 +13,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o api-gateway ./cmd
 FROM alpine:3.19
 WORKDIR /app
 COPY --from=builder /app/api-gateway/api-gateway .
+COPY --from=builder /app/api-gateway/frontend ./frontend
 COPY api-gateway/config/config.yaml ./config.yaml
 
 EXPOSE 8080

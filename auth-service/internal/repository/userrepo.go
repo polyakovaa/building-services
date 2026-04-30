@@ -2,6 +2,7 @@ package repository
 
 import (
 	"building-services/auth-service/internal/model"
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -60,6 +61,46 @@ func (r *UserRepository) FindByID(id string) (*model.User, error) {
 		return nil, fmt.Errorf("%w: %v", ErrDB, err)
 	}
 	return u, nil
+}
+
+func (r *UserRepository) FindAll(ctx context.Context) ([]*model.User, error) {
+	query := `SELECT id, role, full_name, email FROM users`
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find users: %w", err)
+	}
+	defer rows.Close()
+	var users []*model.User
+
+	for rows.Next() {
+		u := &model.User{}
+		err := rows.Scan(&u.ID, &u.Role, &u.FullName, &u.Email)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan users: %w", err)
+		}
+		users = append(users, u)
+
+	}
+	return users, rows.Err()
+
+}
+
+func (r *UserRepository) UpdateRole(ctx context.Context, userID string, newRole string) error {
+	query := `UPDATE users SET role = $1 WHERE id = $2`
+
+	result, err := r.db.ExecContext(ctx, query, newRole, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update role of user: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
 }
 
 func (r *UserRepository) FindByEmail(email string) (*model.User, error) {

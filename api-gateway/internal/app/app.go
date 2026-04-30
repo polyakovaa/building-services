@@ -47,6 +47,7 @@ func NewApp(cfg *config.GatewayConfig) (*App, error) {
 	})
 
 	authMiddleware := middleware.AuthRequired(cfg.JWTSecret)
+	adminHandler := handler.NewAdminHandler(authClient)
 
 	registerRoutes := func(r *gin.Engine) {
 		authHandler.RegisterRoutes(r)
@@ -55,7 +56,11 @@ func NewApp(cfg *config.GatewayConfig) (*App, error) {
 		protected.Use(authMiddleware)
 		{
 			projectHandler.RegisterRoutes(protected)
+			protected.GET("/users/me", authHandler.GetInfo)
+
 		}
+		adminHandler.RegisterRoutes(r)
+		serveFrontend(r)
 	}
 
 	srv := server.NewServer(cfg.Server, registerRoutes)
@@ -67,4 +72,31 @@ func (a *App) Run() error {
 
 	return a.server.StartServer()
 
+}
+
+func serveFrontend(r *gin.Engine) {
+	r.Static("/static", "./frontend/static")
+	r.GET("/", func(c *gin.Context) {
+		c.File("./frontend/index.html")
+	})
+	r.GET("/dashboard", func(c *gin.Context) {
+		c.File("./frontend/dashboard.html")
+	})
+	r.GET("/projects", func(c *gin.Context) {
+		c.File("./frontend/projects.html")
+	})
+
+	r.GET("/project/:id", func(c *gin.Context) {
+		c.File("./frontend/project.html")
+	})
+	r.GET("/tasks", func(c *gin.Context) {
+		c.File("./frontend/tasks.html")
+	})
+	r.GET("/profile", func(c *gin.Context) {
+		c.File("./frontend/profile.html")
+	})
+
+	r.GET("/favicon.ico", func(c *gin.Context) {
+		c.File("./frontend/favicon.ico")
+	})
 }

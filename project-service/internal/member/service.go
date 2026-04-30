@@ -2,6 +2,7 @@ package member
 
 import (
 	projectv1 "building-services/gen/project/v1"
+	"building-services/project-service/internal/errs"
 	"building-services/project-service/internal/util"
 	"context"
 	"database/sql"
@@ -10,13 +11,6 @@ import (
 
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-)
-
-var (
-	ErrProjectNotFound = errors.New("project not found")
-	ErrMemberNotFound  = errors.New("member not found")
-	ErrNoPermission    = errors.New("permission denied")
-	ErrInvalidInput    = errors.New("invalid input")
 )
 
 type Service struct {
@@ -47,6 +41,14 @@ type ProjectRepo interface {
 
 func (s *Service) AddMember(ctx context.Context, req *projectv1.AddMemberRequest) (*projectv1.ProjectMember, error) {
 
+	if req.UserId == "" {
+		return nil, fmt.Errorf("%w: user_id required", errs.ErrInvalidInput)
+	}
+
+	if req.ProjectId == "" {
+		return nil, fmt.Errorf("%w: project_id required", errs.ErrInvalidInput)
+	}
+
 	member := &projectv1.ProjectMember{
 		ProjectId:    req.ProjectId,
 		UserId:       req.UserId,
@@ -63,24 +65,24 @@ func (s *Service) AddMember(ctx context.Context, req *projectv1.AddMemberRequest
 
 func (s *Service) UpdateMember(ctx context.Context, req *projectv1.UpdateMemberRequest) (*projectv1.ProjectMember, error) {
 	if req.ProjectId == "" {
-		return nil, fmt.Errorf("%w: project id required", ErrInvalidInput)
+		return nil, fmt.Errorf("%w: project id required", errs.ErrInvalidInput)
 	}
 
 	if req.UserId == "" {
-		return nil, fmt.Errorf("%w: user id required", ErrInvalidInput)
+		return nil, fmt.Errorf("%w: user id required", errs.ErrInvalidInput)
 	}
 
 	existingProject, err := s.projectRepo.FindByID(ctx, req.ProjectId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrProjectNotFound
+			return nil, errs.ErrProjectNotFound
 		}
 		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
 	existingMember, err := s.memberRepo.FindByID(ctx, req.UserId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrMemberNotFound
+			return nil, errs.ErrMemberNotFound
 		}
 		return nil, fmt.Errorf("failed to get member: %w", err)
 	}
@@ -102,16 +104,16 @@ func (s *Service) UpdateMember(ctx context.Context, req *projectv1.UpdateMemberR
 
 func (s *Service) RemoveMember(ctx context.Context, req *projectv1.RemoveMemberRequest) (*emptypb.Empty, error) {
 	if req.ProjectId == "" {
-		return nil, fmt.Errorf("%w: project id required", ErrInvalidInput)
+		return nil, fmt.Errorf("%w: project id required", errs.ErrInvalidInput)
 	}
 	if req.UserId == "" {
-		return nil, fmt.Errorf("%w: user id required", ErrInvalidInput)
+		return nil, fmt.Errorf("%w: user id required", errs.ErrInvalidInput)
 	}
 
 	_, err := s.projectRepo.FindByID(ctx, req.ProjectId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrProjectNotFound
+			return nil, errs.ErrProjectNotFound
 		}
 		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
@@ -119,7 +121,7 @@ func (s *Service) RemoveMember(ctx context.Context, req *projectv1.RemoveMemberR
 	err = s.memberRepo.Remove(ctx, req.ProjectId, req.UserId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrMemberNotFound
+			return nil, errs.ErrMemberNotFound
 		}
 		return nil, fmt.Errorf("failed to remove member: %w", err)
 	}
@@ -130,13 +132,13 @@ func (s *Service) RemoveMember(ctx context.Context, req *projectv1.RemoveMemberR
 
 func (s *Service) ListMembers(ctx context.Context, req *projectv1.ListMembersRequest) (*projectv1.ListMembersResponse, error) {
 	if req.ProjectId == "" {
-		return nil, fmt.Errorf("%w: project id required", ErrInvalidInput)
+		return nil, fmt.Errorf("%w: project id required", errs.ErrInvalidInput)
 	}
 
 	_, err := s.projectRepo.FindByID(ctx, req.ProjectId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrProjectNotFound
+			return nil, errs.ErrProjectNotFound
 		}
 		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
@@ -153,16 +155,16 @@ func (s *Service) ListMembers(ctx context.Context, req *projectv1.ListMembersReq
 
 func (s *Service) GetMember(ctx context.Context, req *projectv1.GetMemberRequest) (*projectv1.ProjectMember, error) {
 	if req.ProjectId == "" {
-		return nil, fmt.Errorf("%w: project id required", ErrInvalidInput)
+		return nil, fmt.Errorf("%w: project id required", errs.ErrInvalidInput)
 	}
 	if req.UserId == "" {
-		return nil, fmt.Errorf("%w: user id required", ErrInvalidInput)
+		return nil, fmt.Errorf("%w: user id required", errs.ErrInvalidInput)
 	}
 
 	project, err := s.projectRepo.FindByID(ctx, req.ProjectId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrProjectNotFound
+			return nil, errs.ErrProjectNotFound
 		}
 		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
@@ -170,7 +172,7 @@ func (s *Service) GetMember(ctx context.Context, req *projectv1.GetMemberRequest
 	member, err := s.memberRepo.IsProjectMember(ctx, project.Id, req.UserId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrProjectNotFound
+			return nil, errs.ErrProjectNotFound
 		}
 		return nil, fmt.Errorf("failed to get member: %w", err)
 	}

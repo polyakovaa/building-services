@@ -3,10 +3,13 @@ package main
 import (
 	projectv1 "building-services/gen/project/v1"
 	"building-services/project-service/config"
+	"building-services/project-service/internal/attachment"
 	"building-services/project-service/internal/authz"
 	"building-services/project-service/internal/consumer"
 	"building-services/project-service/internal/member"
 	"building-services/project-service/internal/project"
+	"building-services/project-service/internal/task"
+	"building-services/project-service/internal/timeline"
 	"building-services/project-service/internal/user"
 
 	"context"
@@ -34,22 +37,22 @@ func main() {
 	projectRepo := project.NewRepository(db)
 	memberRepo := member.NewRepository(db)
 	userRepo := user.NewRepository(db)
-	//timelineRepo := timeline.NewRepository(db)
-	//taskRepo := task.NewRepository(db)
-	//attachmentRepo := attachment.NewRepository(db)
-	checker := authz.NewPermissionChecker(userRepo, memberRepo)
+	timelineRepo := timeline.NewRepository(db)
+	taskRepo := task.NewRepository(db)
+	attachmentRepo := attachment.NewRepository(db)
+	checker := authz.NewPermissionChecker(userRepo, memberRepo, taskRepo, attachmentRepo)
 
-	projectService := project.NewService(projectRepo, memberRepo, userRepo, checker)
+	projectService := project.NewService(projectRepo, memberRepo, userRepo, timelineRepo, checker)
 	memberService := member.NewService(projectRepo, memberRepo)
-	//timelineService := timeline.NewService(timelineRepo)
-	//taskService := task.NewService(taskRepo, projectRepo, memberRepo)
-	//attachmentService := attachment.NewService(attachmentRepo, taskRepo)
+	timelineService := timeline.NewService(timelineRepo, projectRepo)
+	taskService := task.NewService(taskRepo, projectRepo, checker)
+	attachmentService := attachment.NewService(taskRepo, attachmentRepo, checker)
 
 	projectHandler := project.NewHandler(projectService)
 	memberHandler := member.NewHandler(memberService)
-	//timelineHandler := timeline.NewHandler(timelineService)
-	//taskHandler := task.NewHandler(taskService)
-	//attachmentHandler := attachment.NewHandler(attachmentService)
+	timelineHandler := timeline.NewHandler(timelineService)
+	taskHandler := task.NewHandler(taskService)
+	attachmentHandler := attachment.NewHandler(attachmentService)
 
 	userConsumer, err := consumer.NewUserConsumer(userRepo, "amqp://guest:guest@rabbitmq:5672/")
 	if err != nil {
@@ -69,9 +72,9 @@ func main() {
 	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 	log.Printf("Health server registered, status: %v", healthpb.HealthCheckResponse_SERVING)
 
-	//projectv1.RegisterProjectTimelineServiceServer(grpcServer, timelineHandler)
-	//projectv1.RegisterTaskServiceServer(grpcServer, taskHandler)
-	//projectv1.RegisterAttachmentServiceServer(grpcServer, attachmentHandler)
+	projectv1.RegisterProjectTimelineServiceServer(grpcServer, timelineHandler)
+	projectv1.RegisterTaskServiceServer(grpcServer, taskHandler)
+	projectv1.RegisterAttachmentServiceServer(grpcServer, attachmentHandler)
 
 	lis, err := net.Listen("tcp", ":"+cfg.Server.Port)
 	if err != nil {

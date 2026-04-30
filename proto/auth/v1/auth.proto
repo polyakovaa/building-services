@@ -11,6 +11,9 @@ service AuthService {
     rpc Register(RegisterRequest) returns (AuthResponse);
     rpc Login(LoginRequest) returns (AuthResponse);
     rpc RefreshToken(RefreshTokenRequest) returns (AuthResponse);
+    rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+    rpc UpdateUserRole(UpdateUserRoleRequest) returns (UpdateUserRoleResponse);
+    rpc GetInfo(GetInfoRequest) returns (UserInfo);
 }
 
 enum Role {
@@ -20,6 +23,7 @@ enum Role {
     ROLE_DEPARTMENT_MANAGER = 3;
     ROLE_GIP = 4;
     ROLE_WORKER = 5;
+    ROLE_ADMIN = 6;
 }
 
 
@@ -48,3 +52,31 @@ message AuthResponse {
     string user_id = 4;
     Role role = 5;
 }
+message UserInfo {
+    string id = 1;
+    string email = 2;
+    string full_name = 3;
+    string role = 4;
+    string created_at = 5;
+}
+
+
+message UpdateUserRoleRequest {
+    string user_id = 1;
+    string new_role = 2;
+}
+
+message UpdateUserRoleResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message ListUsersRequest {
+}
+
+message ListUsersResponse {
+    repeated UserInfo users = 1;
+    int32 total_count = 2;
+}
+
+message GetInfoRequest {}

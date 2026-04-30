@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -16,9 +17,19 @@ type UserConsumer struct {
 	conn     *amqp.Connection
 }
 
-func NewUserConsumer(userRepo user.Repository, connStr string) (*UserConsumer, error) {
+func NewUserConsumer(userRepo user.Repository, amqpURL string) (*UserConsumer, error) {
 
-	conn, err := amqp.Dial(connStr)
+	var conn *amqp.Connection
+	var err error
+	for i := 0; i < 10; i++ {
+		conn, err = amqp.Dial(amqpURL)
+		if err == nil {
+			break
+		}
+		log.Printf("Failed to connect to RabbitMQ (attempt %d/10): %v", i+1, err)
+		time.Sleep(2 * time.Second)
+	}
+
 	if err != nil {
 		return nil, err
 	}

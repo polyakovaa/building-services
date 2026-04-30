@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"building-services/api-gateway/internal/util"
 	authv1 "building-services/gen/auth/v1"
 	"context"
 	"fmt"
@@ -148,6 +149,16 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 	})
 }
 
+func (h *AuthHandler) GetInfo(c *gin.Context) {
+	ctx, _ := util.GetGRPCContext(c)
+	resp, err := h.authClient.GetInfo(ctx, &authv1.GetInfoRequest{})
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+	c.JSON(200, resp)
+}
+
 func convertRole(roleStr string) (authv1.Role, error) {
 	switch roleStr {
 	case "ROLE_GIP":
@@ -160,6 +171,8 @@ func convertRole(roleStr string) (authv1.Role, error) {
 		return authv1.Role_ROLE_WORKER, nil
 	case "ROLE_PROJECT_MANAGER":
 		return authv1.Role_ROLE_PROJECT_MANAGER, nil
+	case "ROLE_ADMIN":
+		return authv1.Role_ROLE_ADMIN, nil
 	default:
 		return authv1.Role_ROLE_UNSPECIFIED, fmt.Errorf("unknown role: %s", roleStr)
 	}

@@ -135,7 +135,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
+      start_period: 30s
+  
+ 
 volumes:
   auth_db_data:
   project_db_data:

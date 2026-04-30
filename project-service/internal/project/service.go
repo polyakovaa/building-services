@@ -2,8 +2,10 @@ package project
 
 import (
 	projectv1 "building-services/gen/project/v1"
+	"building-services/project-service/internal/authz"
 	"building-services/project-service/internal/user"
 
+	"building-services/project-service/internal/errs"
 	"building-services/project-service/internal/util"
 	"context"
 	"database/sql"
@@ -15,28 +17,29 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-var (
-	ErrProjectNotFound = errors.New("project not found")
-	ErrNoPermission    = errors.New("permission denied")
-	ErrInvalidInput    = errors.New("invalid input")
-)
-
 type Service struct {
-	projectRepo ProjectRepo
-	memberRepo  MemberRepo
-	userRepo    UserRepo
-	permissions PermissionChecker
+	projectRepo  ProjectRepo
+	memberRepo   MemberRepo
+	userRepo     UserRepo
+	timelineRepo TimelineRepo
+	authz        PermissionChecker
 }
 
 func NewService(projectRepo ProjectRepo,
 	memberRepo MemberRepo, userRepo UserRepo,
-	permissions PermissionChecker) *Service {
+	timelineRepo TimelineRepo,
+	authz PermissionChecker) *Service {
 	return &Service{
-		projectRepo: projectRepo,
-		memberRepo:  memberRepo,
-		userRepo:    userRepo,
-		permissions: permissions,
+		projectRepo:  projectRepo,
+		timelineRepo: timelineRepo,
+		memberRepo:   memberRepo,
+		userRepo:     userRepo,
+		authz:        authz,
 	}
+}
+
+type TimelineRepo interface {
+	CreateEmpty(ctx context.Context, projectID string) error
 }
 
 type ProjectRepo interface {
@@ -44,7 +47,7 @@ type ProjectRepo interface {
 	FindByID(ctx context.Context, id string) (*projectv1.Project, error)
 	Update(ctx context.Context, project *projectv1.Project) error
 	Delete(ctx context.Context, id string) error
-	List(ctx context.Context, filter map[string]interface{}) ([]*projectv1.Project, error)
+	List(ctx context.Context, filter *ProjectFilter) ([]*projectv1.Project, error)
 	UpdateStatus(ctx context.Context, id string, status projectv1.ProjectStatus) error
 }
 type UserRepo interface {
@@ -56,33 +59,34 @@ type MemberRepo interface {
 }
 
 type PermissionChecker interface {
-	CanCreateProject(ctx context.Context, userID string) bool
-	CanGetProject(ctx context.Context, userID, projectID string) bool
-	CanUpdateProject(ctx context.Context, userID, projectID string) bool
-	CanDeleteProject(ctx context.Context, userID string) bool
-	CanChangeStatus(ctx context.Context, userID, projectID string) bool
+	Check(ctx context.Context, userID string, resourceType string, resourceID string, action string) (bool, error)
 }
 
 func (s *Service) CreateProject(ctx context.Context, req *projectv1.CreateProjectRequest) (*projectv1.Project, error) {
+	userID, err := util.GetFromContext(ctx, "user_id")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user_id: %w", err)
+	}
+
+	ok, err := s.authz.Check(ctx, userID, authz.ResourceProject, "", authz.ActionCreate)
+	if err != nil || !ok {
+		return nil, errs.ErrNoPermission
+	}
 
 	if req.Name == "" {
-		return nil, fmt.Errorf("%w: name required", ErrInvalidInput)
+		return nil, fmt.Errorf("%w: name required", errs.ErrInvalidInput)
 	}
 
 	if req.Customer == "" {
-		return nil, fmt.Errorf("%w: customer required", ErrInvalidInput)
+		return nil, fmt.Errorf("%w: customer required", errs.ErrInvalidInput)
 	}
 
 	if req.ObjectAddress == "" {
-		return nil, fmt.Errorf("%w: address required", ErrInvalidInput)
-	}
-
-	if err := s.checkPermission(ctx, "create", ""); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: address required", errs.ErrInvalidInput)
 	}
 
 	if req.StartDate == nil {
-		return nil, fmt.Errorf("%w: start date required", ErrInvalidInput)
+		return nil, fmt.Errorf("%w: start date required", errs.ErrInvalidInput)
 	}
 	if req.EndDate != nil {
 		if req.EndDate.AsTime().Before(req.StartDate.AsTime()) {
@@ -98,43 +102,48 @@ func (s *Service) CreateProject(ctx context.Context, req *projectv1.CreateProjec
 		StartDate:     req.StartDate,
 		EndDate:       req.EndDate,
 		Status:        projectv1.ProjectStatus_PROJECT_STATUS_ACTIVE,
+		CreatedBy:     userID,
 	}
 
 	if err := s.projectRepo.Create(ctx, project); err != nil {
 		return nil, fmt.Errorf("failed to create project in service: %w", err)
 	}
-	userID, err := util.GetFromContext(ctx, "user_id")
-	if err != nil {
-		log.Printf("failed to get user_id: %v", err)
-		return project, nil
-	}
 
 	err = s.memberRepo.Add(ctx, &projectv1.ProjectMember{
-		ProjectId: project.Id,
-		UserId:    userID,
-		JoinedAt:  timestamppb.Now(),
+		ProjectId:    project.Id,
+		UserId:       userID,
+		DepartmentId: "",
+		JoinedAt:     timestamppb.Now(),
 	})
 	if err != nil {
 		log.Printf("failed to add creator as member: %v", err)
+	}
+	if err := s.timelineRepo.CreateEmpty(ctx, project.Id); err != nil {
+		log.Printf("failed to create timeline: %v", err)
 	}
 
 	return project, nil
 }
 
 func (s *Service) GetProject(ctx context.Context, req *projectv1.GetProjectRequest) (*projectv1.Project, error) {
-
-	if req.Id == "" {
-		return nil, fmt.Errorf("%w: project id required", ErrInvalidInput)
+	userID, err := util.GetFromContext(ctx, "user_id")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user_id: %w", err)
 	}
 
-	if err := s.checkPermission(ctx, "get", req.Id); err != nil {
-		return nil, ErrNoPermission
+	ok, err := s.authz.Check(ctx, userID, authz.ResourceProject, "", authz.ActionView)
+	if err != nil || !ok {
+		return nil, errs.ErrNoPermission
+	}
+
+	if req.Id == "" {
+		return nil, fmt.Errorf("%w: project id required", errs.ErrInvalidInput)
 	}
 
 	project, err := s.projectRepo.FindByID(ctx, req.Id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrProjectNotFound
+			return nil, errs.ErrProjectNotFound
 		}
 		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
@@ -143,26 +152,30 @@ func (s *Service) GetProject(ctx context.Context, req *projectv1.GetProjectReque
 }
 
 func (s *Service) UpdateProject(ctx context.Context, req *projectv1.UpdateProjectRequest) (*projectv1.Project, error) {
-
-	if req.Id == "" {
-		return nil, fmt.Errorf("%w: project id required", ErrInvalidInput)
+	userID, err := util.GetFromContext(ctx, "user_id")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user_id: %w", err)
+	}
+	ok, err := s.authz.Check(ctx, userID, authz.ResourceProject, req.Id, authz.ActionEdit)
+	if err != nil || !ok {
+		return nil, errs.ErrNoPermission
 	}
 
-	if err := s.checkPermission(ctx, "update", req.Id); err != nil {
-		return nil, ErrNoPermission
+	if req.Id == "" {
+		return nil, fmt.Errorf("%w: project id required", errs.ErrInvalidInput)
 	}
 
 	existing, err := s.projectRepo.FindByID(ctx, req.Id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrProjectNotFound
+			return nil, errs.ErrProjectNotFound
 		}
 		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
 
 	if req.EndDate != nil {
 		if req.EndDate.AsTime().Before(existing.StartDate.AsTime()) {
-			return nil, ErrInvalidInput
+			return nil, errs.ErrInvalidInput
 		}
 	}
 
@@ -187,13 +200,17 @@ func (s *Service) UpdateProject(ctx context.Context, req *projectv1.UpdateProjec
 }
 
 func (s *Service) DeleteProject(ctx context.Context, req *projectv1.DeleteProjectRequest) (*emptypb.Empty, error) {
-
-	if req.Id == "" {
-		return nil, fmt.Errorf("%w: project id required", ErrInvalidInput)
+	userID, err := util.GetFromContext(ctx, "user_id")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user_id: %w", err)
+	}
+	ok, err := s.authz.Check(ctx, userID, authz.ResourceProject, req.Id, authz.ActionDelete)
+	if err != nil || !ok {
+		return nil, errs.ErrNoPermission
 	}
 
-	if err := s.checkPermission(ctx, "delete", req.Id); err != nil {
-		return nil, ErrNoPermission
+	if req.Id == "" {
+		return nil, fmt.Errorf("%w: project id required", errs.ErrInvalidInput)
 	}
 
 	if err := s.projectRepo.Delete(ctx, req.Id); err != nil {
@@ -207,20 +224,25 @@ func (s *Service) DeleteProject(ctx context.Context, req *projectv1.DeleteProjec
 }
 
 func (s *Service) ChangeProjectStatus(ctx context.Context, req *projectv1.ChangeProjectStatusRequest) (*projectv1.Project, error) {
+	userID, err := util.GetFromContext(ctx, "user_id")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user_id: %w", err)
+	}
+	ok, err := s.authz.Check(ctx, userID, authz.ResourceProject, req.Id, authz.ActionChangeStatus)
+	if err != nil || !ok {
+		return nil, errs.ErrNoPermission
+	}
 
 	if req.Id == "" {
-		return nil, fmt.Errorf("%w: project id required", ErrInvalidInput)
+		return nil, fmt.Errorf("%w: project id required", errs.ErrInvalidInput)
 	}
 	if req.Status == projectv1.ProjectStatus_PROJECT_STATUS_UNSPECIFIED {
-		return nil, fmt.Errorf("%w: project status required", ErrInvalidInput)
+		return nil, fmt.Errorf("%w: project status required", errs.ErrInvalidInput)
 	}
 
-	if err := s.checkPermission(ctx, "change_status", req.Id); err != nil {
-		return nil, ErrNoPermission
-	}
 	if err := s.projectRepo.UpdateStatus(ctx, req.Id, req.Status); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrProjectNotFound
+			return nil, errs.ErrProjectNotFound
 		}
 		return nil, fmt.Errorf("failed to update project status: %w", err)
 	}
@@ -228,38 +250,32 @@ func (s *Service) ChangeProjectStatus(ctx context.Context, req *projectv1.Change
 	return s.projectRepo.FindByID(ctx, req.Id)
 }
 
-func (s *Service) checkPermission(ctx context.Context, action string, projectID string) error {
+func (s *Service) ListProjects(ctx context.Context, req *projectv1.ListProjectsRequest) (*projectv1.ListProjectsResponse, error) {
 	userID, err := util.GetFromContext(ctx, "user_id")
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to get user_id: %w", err)
 	}
 
-	switch action {
-	case "create":
-		if !s.permissions.CanCreateProject(ctx, userID) {
-			return ErrNoPermission
-		}
-
-	case "get":
-		if !s.permissions.CanGetProject(ctx, userID, projectID) {
-			return ErrNoPermission
-		}
-
-	case "update":
-		if !s.permissions.CanUpdateProject(ctx, userID, projectID) {
-			return ErrNoPermission
-		}
-
-	case "delete":
-		if !s.permissions.CanDeleteProject(ctx, userID) {
-			return ErrNoPermission
-		}
-
-	case "change_status":
-		if !s.permissions.CanChangeStatus(ctx, userID, projectID) {
-			return ErrNoPermission
-		}
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
-	return nil
+	filter := &ProjectFilter{
+		Status:    req.StatusFilter,
+		ManagerID: req.ManagerId,
+		UserID:    userID,
+		UserRole:  user.Role,
+	}
+
+	projects, err := s.projectRepo.List(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list projects: %w", err)
+	}
+
+	return &projectv1.ListProjectsResponse{
+		Projects:   projects,
+		TotalCount: int32(len(projects)),
+	}, nil
+
 }

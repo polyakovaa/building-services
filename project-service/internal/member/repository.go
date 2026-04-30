@@ -26,18 +26,37 @@ func (r *Repository) IsProjectMember(ctx context.Context, projectID, userID stri
 
 }
 
+func (r *Repository) CanAssignTask(ctx context.Context, projectID, userID string) (bool, error) {
+	query := `SELECT EXISTS(
+        SELECT 1 FROM project_members pm
+        JOIN users u ON u.id = pm.user_id
+        WHERE pm.project_id = $1 
+        AND pm.user_id = $2
+        AND u.global_role IN ('ROLE_PROJECT_MANAGER', 'ROLE_GIP', 'ROLE_DIRECTOR')
+    )`
+
+	var exists bool
+	err := r.db.QueryRowContext(ctx, query, projectID, userID).Scan(&exists)
+	return exists, err
+}
+
 func (r *Repository) Add(ctx context.Context, member *projectv1.ProjectMember) error {
-	query := `INSERT INTO project_member(project_id, user_id, department_id, joined_at) VALUES($1, $2, $3,$4)`
+	query := `INSERT INTO project_members(project_id, user_id, department_id, joined_at) VALUES($1, $2, $3,$4)`
 	var joinedAt *time.Time
 	if member.JoinedAt != nil {
 		t := member.JoinedAt.AsTime()
 		joinedAt = &t
 	}
 
+	var deptID interface{} = nil
+	if member.DepartmentId != "" {
+		deptID = member.DepartmentId
+	}
+
 	_, err := r.db.ExecContext(ctx, query,
-		member.UserId,
-		member.DepartmentId,
 		member.ProjectId,
+		member.UserId,
+		deptID,
 		joinedAt,
 	)
 

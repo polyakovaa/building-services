@@ -17,6 +17,7 @@ service TaskService {
     rpc DeleteTask(DeleteTaskRequest) returns (google.protobuf.Empty);
     rpc UpdateTaskStatus(UpdateTaskStatusRequest) returns (Task);
     rpc AssignTask(AssignTaskRequest) returns (Task);
+    rpc ListMyTasks(ListMyTasksRequest) returns (ListTasksResponse);
 }
 message Task {
     string id = 1;
@@ -68,6 +69,7 @@ message ListTasksRequest {
     TaskStatus status_filter = 2;
     string assigned_to_filter = 3;
     string parent_task_id = 4;
+    TaskPriority priority_filter = 5;
 }
 
 message ListTasksResponse {
@@ -95,4 +97,7 @@ message AssignTaskRequest {
 
 message DeleteTaskRequest {
     string id = 1;
+}
+message ListMyTasksRequest {
+    TaskStatus status_filter = 1;
 }

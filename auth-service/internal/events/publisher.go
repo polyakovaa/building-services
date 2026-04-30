@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -21,7 +22,18 @@ type EventPublisher struct {
 }
 
 func NewEventPublisher(amqpURL string) (*EventPublisher, error) {
-	conn, err := amqp.Dial(amqpURL)
+	var conn *amqp.Connection
+	var err error
+
+	for i := 0; i < 10; i++ {
+		conn, err = amqp.Dial(amqpURL)
+		if err == nil {
+			break
+		}
+		log.Printf("Failed to connect to RabbitMQ (attempt %d/10): %v", i+1, err)
+		time.Sleep(2 * time.Second)
+	}
+
 	if err != nil {
 		return nil, err
 	}

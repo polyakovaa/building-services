@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Проекты</title><link rel="stylesheet" href="/static/style.css"></head>
+<body>
+    <div class="header"><h1>Проекты</h1><button onclick="logout()">Выйти</button></div>
+    <div class="sidebar"><a href="/dashboard">Главная</a><a href="/projects">Проекты</a><a href="/tasks">Задачи</a></div>
+    <div class="main-content"><h2>Список проектов</h2><div id="projectsList">Загрузка...</div></div>
+    <script src="/static/app.js"></script>
+    <script>fetch('/api/projects',{headers:{'Authorization':`Bearer ${localStorage.getItem('access_token')}`}}).then(r=>r.json()).then(data=>{
+        document.getElementById('projectsList').innerHTML = data.map(p=>`<div><b>${p.name}</b> - ${p.customer}</div>`).join('')
+    })</script>
+</body>
+</html>

@@ -18,6 +18,20 @@ func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db}
 }
 
+type ProjectFilter struct {
+	Status    projectv1.ProjectStatus
+	ManagerID string
+	UserID    string
+	UserRole  string
+}
+
+func (r *Repository) Exists(ctx context.Context, id string) (bool, error) {
+	query := `SELECT EXISTS(SELECT 1 FROM projects WHERE id = $1)`
+	var exists bool
+	err := r.db.QueryRowContext(ctx, query, id).Scan(&exists)
+	return exists, err
+}
+
 func (r *Repository) Create(ctx context.Context, project *projectv1.Project) error {
 	query := `INSERT INTO projects (name, description, object_address, customer, start_date, end_date, created_by, status) 
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`
@@ -96,6 +110,7 @@ func (r *Repository) FindByID(ctx context.Context, id string) (*projectv1.Projec
 	return p, nil
 
 }
+
 func (r *Repository) Update(ctx context.Context, project *projectv1.Project) error {
 	query := `UPDATE projects SET name = $1, description =$2,
 	 object_address = $3, customer = $4, start_date = $5, end_date = $6, status = $7 WHERE id=$8`
@@ -173,8 +188,75 @@ func (r *Repository) UpdateStatus(ctx context.Context, id string, status project
 	return nil
 }
 
-//TODO
+func (r *Repository) List(ctx context.Context, filter *ProjectFilter) ([]*projectv1.Project, error) {
+	query := `SELECT id, name, description, object_address, customer, 
+	status, start_date, end_date, created_by 
+	FROM projects WHERE 1=1`
 
-func (r *Repository) List(ctx context.Context, filter map[string]interface{}) ([]*projectv1.Project, error) {
-	return nil, nil
+	args := []interface{}{}
+	argIdx := 1
+	if filter.Status != projectv1.ProjectStatus_PROJECT_STATUS_UNSPECIFIED {
+		query += fmt.Sprintf(" AND status = $%d", argIdx)
+		args = append(args, filter.Status)
+		argIdx++
+	}
+	if filter.ManagerID != "" {
+		query += fmt.Sprintf(` AND id IN (
+            SELECT project_id FROM project_members 
+            WHERE user_id = $%d
+        )`, argIdx)
+		args = append(args, filter.ManagerID)
+		argIdx++
+	}
+
+	switch filter.UserRole {
+	case "ROLE_DIRECTOR", "ROLE_GIP":
+	case "ROLE_DEPARTMENT_MANAGER":
+		query += fmt.Sprintf(` AND id IN (
+            SELECT project_id FROM project_members pm
+            JOIN users u ON u.id = pm.user_id
+            WHERE u.department_id = $%d
+        )`, argIdx)
+		args = append(args, filter.UserID)
+		argIdx++
+	default:
+		query += fmt.Sprintf(` AND id IN (
+            SELECT project_id FROM project_members 
+            WHERE user_id = $%d
+        )`, argIdx)
+		args = append(args, filter.UserID)
+		argIdx++
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list projects: %w", err)
+	}
+	defer rows.Close()
+	var projects []*projectv1.Project
+	for rows.Next() {
+		p := &projectv1.Project{}
+		var startDate, endDate sql.NullTime
+		var status int32
+
+		err := rows.Scan(
+			&p.Id, &p.Name, &p.Description, &p.ObjectAddress,
+			&p.Customer, &status, &startDate, &endDate, &p.CreatedBy,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan project: %w", err)
+		}
+
+		p.Status = projectv1.ProjectStatus(status)
+		if startDate.Valid {
+			p.StartDate = timestamppb.New(startDate.Time)
+		}
+		if endDate.Valid {
+			p.EndDate = timestamppb.New(endDate.Time)
+		}
+
+		projects = append(projects, p)
+	}
+
+	return projects, rows.Err()
 }

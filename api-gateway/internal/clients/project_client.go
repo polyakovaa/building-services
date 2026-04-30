@@ -8,12 +8,12 @@ import (
 )
 
 type ProjectClient struct {
-	Project    projectv1.ProjectServiceClient
-	Member     projectv1.ProjectMemberServiceClient
-	Task       projectv1.TaskServiceClient
-	Timeline   projectv1.ProjectTimelineServiceClient
-	Attachment projectv1.AttachmentServiceClient
-	Conn       *grpc.ClientConn
+	Project       projectv1.ProjectServiceClient
+	ProjectMember projectv1.ProjectMemberServiceClient
+	Task          projectv1.TaskServiceClient
+	Timeline      projectv1.ProjectTimelineServiceClient
+	Attachment    projectv1.AttachmentServiceClient
+	Conn          *grpc.ClientConn
 }
 
 func NewProjectClient(address string) (*ProjectClient, *grpc.ClientConn, error) {
@@ -23,11 +23,11 @@ func NewProjectClient(address string) (*ProjectClient, *grpc.ClientConn, error) 
 	}
 
 	return &ProjectClient{
-		Project:    projectv1.NewProjectServiceClient(conn),
-		Member:     projectv1.NewProjectMemberServiceClient(conn),
-		Task:       projectv1.NewTaskServiceClient(conn),
-		Timeline:   projectv1.NewProjectTimelineServiceClient(conn),
-		Attachment: projectv1.NewAttachmentServiceClient(conn),
-		Conn:       conn,
+		Project:       projectv1.NewProjectServiceClient(conn),
+		ProjectMember: projectv1.NewProjectMemberServiceClient(conn),
+		Task:          projectv1.NewTaskServiceClient(conn),
+		Timeline:      projectv1.NewProjectTimelineServiceClient(conn),
+		Attachment:    projectv1.NewAttachmentServiceClient(conn),
+		Conn:          conn,
 	}, conn, nil
 }

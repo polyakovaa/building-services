@@ -21,7 +21,7 @@ redis:
 
 jwt:
   secret: "secret"
-  access_ttl: "15m" 
+  access_ttl: "150m" 
   refresh_ttl: "168h"
 
 logging:

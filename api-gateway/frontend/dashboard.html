@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Главная</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/app.js"></script>
+</head>
+<body class="dashboard-body">
+    <div class="dashboard-container">
+        <div class="header">
+            <h1>Управление проектами ГенСей </h1>
+            <div class="user-info">
+                <span class="user-name" id="userName"></span>
+                <span class="user-role" id="userRole"></span>
+                <button class="logout-btn" onclick="logout()">Выйти</button>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="sidebar">
+                <ul class="sidebar-menu">
+                    <li class="sidebar-item active" data-page="dashboard">
+                        <span>Главная</span>
+                    </li>
+                    <li class="sidebar-item" data-page="projects">
+                        <span>Проекты</span>
+                    </li>
+                    <li class="sidebar-item" data-page="tasks" onclick="window.location.href='/tasks'">
+                        <span>Мои задачи</span>
+                    </li>
+                    <li class="sidebar-item" data-page="calendar">
+                        <span>Календарь</span>
+                    </li>
+                    <li class="sidebar-item" data-page="analytics">
+                        <span>Аналитика</span>
+                    </li>
+                    <li class="sidebar-item" data-page="notifications">
+                        <span>Уведомления</span>
+                        <span class="notification-badge" id="notifCount"></span>
+                    </li>
+                    <li class="sidebar-item" data-page="profile">
+                        <span>Профиль</span>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="main-content" id="mainContent">
+                <div class="stats">
+                    <div class="stat-card">
+                        <h3>Активные проекты</h3>
+                        <div><span class="stat-number" id="activeProjects">0</span><span class="stat-unit"></span></div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Мои задачи</h3>
+                        <div><span class="stat-number" id="myTasks">0</span><span class="stat-unit"></span></div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Просроченные</h3>
+                        <div><span class="stat-number" id="overdueTasks">0</span><span class="stat-unit"></span></div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Задачи на сегодня</h3>
+                        <div><span class="stat-number" id="todayTasks">0</span><span class="stat-unit"></span></div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Новые уведомления</h3>
+                        <div><span class="stat-number" id="newNotifications">0</span><span class="stat-unit"></span></div>
+                    </div>
+                </div>
+
+                <div class="deadlines-list">
+                    <h3 class="section-title">Ближайшие дедлайны</h3>
+                    <div id="deadlinesContainer">
+                        <div class="loading">Загрузка...</div>
+                    </div>
+                </div>
+
+                <div class="tasks-list">
+                    <h3 class="section-title">Последние изменения</h3>
+                    <div id="changesContainer">
+                        <div class="loading">Загрузка...</div>
+                    </div>
+                </div>
+
+                <div class="projects-list">
+                    <h3 class="section-title">Мои проекты</h3>
+                    <div id="projectsContainer">
+                        <div class="loading">Загрузка проектов...</div>
+                    </div>
+                    <div class="quick-link">
+                        <a href="#" data-page="projects">→ Все проекты</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        
+        async function loadProjects() {
+            const container = document.getElementById('projectsContainer');
+            
+            try {
+                const response = await apiRequest('/api/projects');
+                
+                if (response.ok) {
+                    const projects = await response.json();
+                    const projectsArray = Array.isArray(projects) ? projects : (projects.projects || []);
+                    
+                    document.getElementById('activeProjects').textContent = projectsArray.length;
+                    
+                    if (projectsArray.length === 0) {
+                        container.innerHTML = '<div class="empty">Нет проектов</div>';
+                        return;
+                    }
+                    
+                    container.innerHTML = projectsArray.slice(0, 3).map(project => `
+                        <div class="project-card">
+                            <h3>${project.name || 'Без названия'}</h3>
+                            <p>${project.description || 'Нет описания'}</p>
+                            <span class="status">${getProjectStatusText(project.status) || 'Активен'}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = '<div class="empty">Ошибка загрузки проектов</div>';
+                }
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = '<div class="empty">Ошибка соединения</div>';
+            }
+        }
+        
+        
+        async function loadMyTasks() {
+            try {
+                const response = await apiRequest('/api/tasks/my');
+                if (response.ok) {
+                    const data = await response.json();
+                    const tasks = data.tasks || [];
+                 
+                    const activeTasks = tasks.filter(t => t.status !== 3).length;
+                    const inProgress = tasks.filter(t => t.status === 2).length;
+                    const overdue = tasks.filter(t => t.status === 4).length;
+                    const today = tasks.filter(t => {
+                        if (!t.deadline) return false;
+                        if (t.status === 3) return false;
+                        const deadline = new Date(t.deadline.seconds * 1000);
+                        const today = new Date();
+                        return deadline.toDateString() === today.toDateString();
+                    }).length;
+                    document.getElementById('myTasks').textContent = activeTasks;
+                    document.getElementById('overdueTasks').textContent = overdue;
+                    document.getElementById('todayTasks').textContent = today;
+                    const sorted = tasks
+                        .filter(t => t.deadline && t.status !== 3)
+                        .sort((a, b) => a.deadline.seconds - b.deadline.seconds)
+                        .slice(0, 5);
+                        
+                    const deadlinesContainer = document.getElementById('deadlinesContainer');
+                    if (deadlinesContainer) {
+                        deadlinesContainer.innerHTML = sorted.map(t => `
+                            <div class="deadline-item">
+                                <span class="deadline-name">${t.title || 'Без названия'}</span>
+                                <span class="deadline-date ${isUrgent(t.deadline) ? 'deadline-urgent' : ''}">
+                                    ${new Date(t.deadline.seconds * 1000).toLocaleDateString()}
+                                </span>
+                            </div>
+                        `).join('');
+                        
+                        if (sorted.length === 0) {
+                            deadlinesContainer.innerHTML = '<div class="empty">Нет ближайших дедлайнов</div>';
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load tasks:', err);
+            }
+        }
+
+        
+
+        async function loadDashboardData() {
+            await Promise.all([
+                loadUserInfo(),
+                loadProjects(),
+                loadMyTasks()
+            ]);
+        }
+
+        
+        document.querySelectorAll('.sidebar-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const page = item.dataset.page;
+                document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+            
+            });
+        });
+        
+        document.querySelectorAll('.quick-link a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const page = link.dataset.page;
+                if (page === 'projects') {
+                    window.location.href = '/projects.html';
+                }
+            });
+        });
+        loadDashboardData();
+    </script>
+</body>
+</html>

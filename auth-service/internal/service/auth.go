@@ -46,6 +46,8 @@ type UserRepo interface {
 	CreateUser(u *model.User) (*model.User, error)
 	FindByID(id string) (*model.User, error)
 	FindByEmail(email string) (*model.User, error)
+	FindAll(ctx context.Context) ([]*model.User, error)
+	UpdateRole(ctx context.Context, userID string, newRole string) error
 }
 
 type TokenRepo interface {
@@ -64,6 +66,7 @@ var (
 	ErrPasswordTooShort   = errors.New("password too short")
 	ErrInvalidCredentials = errors.New("invalid email or password")
 	ErrInvalidAccessToken = errors.New("invalid access token")
+	ErrNoPermission       = errors.New("permission denied")
 )
 
 func (s *AuthService) RegisterUser(ctx context.Context, username, email, password, role string) (*model.User, error) {
@@ -202,4 +205,21 @@ func (s *AuthService) Login(email, password string) (*model.User, *model.Token, 
 
 func (s *AuthService) Logout(refreshToken string) error {
 	return s.tokenRepo.DeleteRefreshToken(refreshToken)
+}
+
+func (s *AuthService) UpdateRole(ctx context.Context, userID, newRole string, adminID string) error {
+	admin, err := s.userRepo.FindByID(adminID)
+	if err != nil || admin.Role != "ROLE_ADMIN" {
+		return ErrNoPermission
+	}
+
+	return s.userRepo.UpdateRole(ctx, userID, newRole)
+}
+
+func (s *AuthService) ListUsers(ctx context.Context, adminID string) ([]*model.User, error) {
+	admin, err := s.userRepo.FindByID(adminID)
+	if err != nil || admin.Role != "ROLE_ADMIN" {
+		return nil, ErrNoPermission
+	}
+	return s.userRepo.FindAll(ctx)
 }

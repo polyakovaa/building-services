@@ -5,8 +5,10 @@ import (
 	authv1 "building-services/gen/auth/v1"
 	"context"
 	"log"
+	"time"
 
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -74,5 +76,79 @@ func (h *AuthHandler) RefreshToken(ctx context.Context, req *authv1.RefreshToken
 		ExpiresAt:    timestamppb.New(exp),
 		UserId:       user.ID,
 		Role:         authv1.Role(authv1.Role_value[user.Role]),
+	}, nil
+}
+
+func (h *AuthHandler) ListUsers(ctx context.Context, req *authv1.ListUsersRequest) (*authv1.ListUsersResponse, error) {
+	userID, ok := ctx.Value("user_id").(string)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "user not authenticated")
+	}
+
+	users, err := h.authService.ListUsers(ctx, userID)
+	if err != nil {
+		log.Printf("Failed to list users: %v", err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	userInfos := make([]*authv1.UserInfo, 0, len(users))
+	for _, u := range users {
+		userInfos = append(userInfos, &authv1.UserInfo{
+			Id:        u.ID,
+			Email:     u.Email,
+			FullName:  u.FullName,
+			Role:      u.Role,
+			CreatedAt: u.CreatedAt.Format(time.RFC3339),
+		})
+	}
+
+	return &authv1.ListUsersResponse{
+		Users:      userInfos,
+		TotalCount: int32(len(userInfos)),
+	}, nil
+}
+
+func (h *AuthHandler) UpdateUserRole(ctx context.Context, req *authv1.UpdateUserRoleRequest) (*authv1.UpdateUserRoleResponse, error) {
+	adminID, ok := ctx.Value("user_id").(string)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "user not authenticated")
+	}
+
+	err := h.authService.UpdateRole(ctx, adminID, req.UserId, req.NewRole)
+	if err != nil {
+		log.Printf("Failed to update user role: %v", err)
+		return &authv1.UpdateUserRoleResponse{
+			Success: false,
+			Message: err.Error(),
+		}, nil
+	}
+
+	return &authv1.UpdateUserRoleResponse{
+		Success: true,
+		Message: "Role updated successfully",
+	}, nil
+}
+
+func (h *AuthHandler) GetInfo(ctx context.Context, req *authv1.GetInfoRequest) (*authv1.UserInfo, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "no metadata")
+	}
+
+	values := md.Get("user_id")
+	if len(values) == 0 {
+		return nil, status.Error(codes.Unauthenticated, "user_id not found")
+	}
+	userID := values[0]
+
+	user, err := h.authService.GetUserByID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &authv1.UserInfo{
+		Id:       user.ID,
+		Email:    user.Email,
+		FullName: user.FullName,
+		Role:     user.Role,
 	}, nil
 }

@@ -4,23 +4,32 @@ import (
 	projectv1 "building-services/gen/project/v1"
 	"building-services/project-service/internal/user"
 	"context"
-	"log"
 )
 
 type PermissionChecker struct {
-	userRepo   UserRepo
-	memberRepo MemberRepo
+	userRepo       UserRepo
+	memberRepo     MemberRepo
+	taskRepo       TaskRepo
+	attachmentRepo AttachmentRepo
 }
 
-func NewPermissionChecker(userRepo UserRepo, memberRepo MemberRepo) *PermissionChecker {
+func NewPermissionChecker(userRepo UserRepo, memberRepo MemberRepo, taskRepo TaskRepo, attachmentRepo AttachmentRepo) *PermissionChecker {
 	return &PermissionChecker{
-		userRepo:   userRepo,
-		memberRepo: memberRepo,
+		userRepo:       userRepo,
+		memberRepo:     memberRepo,
+		taskRepo:       taskRepo,
+		attachmentRepo: attachmentRepo,
 	}
 }
 
 type UserRepo interface {
 	FindByID(ctx context.Context, id string) (*user.User, error)
+}
+
+type TaskRepo interface {
+	FindByID(ctx context.Context, id string) (*projectv1.Task, error)
+	GetProjectID(ctx context.Context, id string) (string, error)
+	IsAssignee(ctx context.Context, taskID string, userID string) (bool, error)
 }
 
 type MemberRepo interface {
@@ -29,6 +38,27 @@ type MemberRepo interface {
 	IsManagerOfProject(ctx context.Context, userID, projectID string) (bool, error)
 	GetProjectMembers(ctx context.Context, projectID string) ([]*projectv1.ProjectMember, error)
 }
+type AttachmentRepo interface {
+	GetTaskID(ctx context.Context, attachmentID string) (string, error)
+	GetUploadedBy(ctx context.Context, attachmentID string) (string, error)
+}
+
+const (
+	ResourceProject    = "project"
+	ResourceTask       = "task"
+	ResourceAttachment = "attachment"
+)
+
+const (
+	ActionCreate       = "create"
+	ActionView         = "view"
+	ActionEdit         = "edit"
+	ActionDelete       = "delete"
+	ActionChangeStatus = "change_status"
+	ActionAssign       = "assign"
+	ActionUpload       = "upload"
+	ActionDownload     = "download"
+)
 
 const (
 	RoleDirector          = "ROLE_DIRECTOR"
@@ -37,132 +67,154 @@ const (
 	RoleProjectManager    = "ROLE_PROJECT_MANAGER"
 	RoleWorker            = "ROLE_WORKER"
 	RoleUnspecified       = "ROLE_UNSPECIFIED"
+	RoleAdmin             = "ROLE_ADMIN"
 )
 
-func (p *PermissionChecker) CanCreateProject(ctx context.Context, userID string) bool {
-	user, err := p.userRepo.FindByID(ctx, userID)
+func (c *PermissionChecker) Check(ctx context.Context, userID string, resourceType string, resourceID string, action string) (bool, error) {
+	user, err := c.userRepo.FindByID(ctx, userID)
 	if err != nil {
-		log.Printf("failed to find user %s: %v", userID, err)
-		return false
+		return false, err
 	}
 
-	allowedRoles := map[string]bool{
-		RoleDirector:          true,
-		RoleGIP:               true,
-		RoleDepartmentManager: true,
-		RoleProjectManager:    true,
-		RoleWorker:            false,
-		RoleUnspecified:       false,
-	}
-	return allowedRoles[user.Role]
-}
-
-func (p *PermissionChecker) CanGetProject(ctx context.Context, userID, projectID string) bool {
-	user, err := p.userRepo.FindByID(ctx, userID)
-	if err != nil {
-		log.Printf("failed to find user %s: %v", userID, err)
-		return false
+	if user.Role == RoleAdmin {
+		return true, nil
 	}
 
 	if user.Role == RoleDirector || user.Role == RoleGIP {
-		return true
+		return true, nil
 	}
 
-	if user.Role == RoleDepartmentManager {
-		ok, err := p.memberRepo.IsProjectInDepartment(ctx, projectID, *user.DepartmentID)
-		if err != nil {
-			return false
+	switch resourceType {
+	case ResourceProject:
+		if resourceID == "" && action == ActionView {
+			return true, nil
 		}
-		return ok
+		return c.checkProject(ctx, user, resourceID, action)
+	case ResourceTask:
+		return c.checkTask(ctx, user, resourceID, action)
+	case ResourceAttachment:
+		return c.checkAttachment(ctx, user, resourceID, action)
 	}
 
-	if user.Role == RoleProjectManager {
-		ok, err := p.memberRepo.IsManagerOfProject(ctx, userID, projectID)
-		if err != nil {
-			return false
-		}
-		return ok
-	}
-	member, err := p.memberRepo.IsProjectMember(ctx, projectID, userID)
-	if err != nil {
-		return false
-	}
-
-	if member != nil {
-		return true
-	}
-	return false
+	return false, nil
 }
 
-func (p *PermissionChecker) CanUpdateProject(ctx context.Context, userID, projectID string) bool {
-	user, err := p.userRepo.FindByID(ctx, userID)
-	if err != nil {
-		log.Printf("failed to find user %s: %v", userID, err)
-		return false
-	}
+func (c *PermissionChecker) checkProject(ctx context.Context, user *user.User, projectID string, action string) (bool, error) {
+	switch action {
+	case ActionCreate:
+		return user.Role == RoleProjectManager ||
+			user.Role == RoleDepartmentManager, nil
 
-	if user.Role == RoleDirector || user.Role == RoleGIP {
-		return true
-	}
-
-	if user.Role == RoleDepartmentManager {
-		ok, err := p.memberRepo.IsProjectInDepartment(ctx, projectID, *user.DepartmentID)
-		if err != nil {
-			return false
+	case ActionView:
+		if user.Role == RoleDepartmentManager {
+			if user.DepartmentID == nil {
+				return false, nil
+			}
+			return c.memberRepo.IsProjectInDepartment(ctx, projectID, *user.DepartmentID)
 		}
-		return ok
-	}
-
-	if user.Role == RoleProjectManager {
-		ok, err := p.memberRepo.IsManagerOfProject(ctx, userID, projectID)
+		_, err := c.memberRepo.IsProjectMember(ctx, projectID, user.ID)
 		if err != nil {
-			return false
+			return false, err
 		}
-		return ok
+		return true, nil
+
+	case ActionEdit, ActionChangeStatus:
+		if user.Role == RoleDepartmentManager {
+			if user.DepartmentID == nil {
+				return false, nil
+			}
+			return c.memberRepo.IsProjectInDepartment(ctx, projectID, *user.DepartmentID)
+		}
+		if user.Role == RoleProjectManager {
+			return c.memberRepo.IsManagerOfProject(ctx, user.ID, projectID)
+		}
+		return false, nil
+
+	case ActionDelete:
+		return false, nil
+
+	default:
+		return false, nil
 	}
 
-	return false
 }
 
-func (p *PermissionChecker) CanDeleteProject(ctx context.Context, userID string) bool {
-	user, err := p.userRepo.FindByID(ctx, userID)
+func (c *PermissionChecker) checkTask(ctx context.Context, user *user.User, taskID string, action string) (bool, error) {
+	projectID, err := c.taskRepo.GetProjectID(ctx, taskID)
 	if err != nil {
-		log.Printf("failed to find user %s: %v", userID, err)
-		return false
+		return false, err
 	}
-	return user.Role == RoleDirector
+
+	switch action {
+	case ActionCreate:
+		// Создавать задачу могут те же, кто может редактировать проект
+		return c.checkProject(ctx, user, projectID, ActionEdit)
+
+	case ActionView:
+		// Если может видеть проект — видит и задачи
+		ok, err := c.checkProject(ctx, user, projectID, ActionView)
+		if err != nil {
+			return false, err
+		}
+		if ok {
+			return true, nil
+		}
+		// Или если исполнитель задачи
+		return c.taskRepo.IsAssignee(ctx, taskID, user.ID)
+
+	case ActionEdit:
+		return c.checkProject(ctx, user, projectID, ActionEdit)
+
+	case ActionDelete:
+		return false, nil // только директор
+
+	case ActionChangeStatus:
+		// Менеджеры могут менять статус любых задач в проекте
+		ok, err := c.checkProject(ctx, user, projectID, ActionEdit)
+		if err != nil {
+			return false, err
+		}
+		if ok {
+			return true, nil
+		}
+		// Worker может менять статус только своих задач
+		return c.taskRepo.IsAssignee(ctx, taskID, user.ID)
+
+	case ActionAssign:
+		return c.checkProject(ctx, user, projectID, ActionEdit)
+
+	default:
+		return false, nil
+	}
 }
 
-func (p *PermissionChecker) CanChangeStatus(ctx context.Context, userID, projectID string) bool {
-	user, err := p.userRepo.FindByID(ctx, userID)
+// authz/permissions.go
+func (c *PermissionChecker) checkAttachment(ctx context.Context, user *user.User, attachmentID string, action string) (bool, error) {
+	// Получаем task_id из вложения
+	taskID, err := c.attachmentRepo.GetTaskID(ctx, attachmentID)
 	if err != nil {
-		log.Printf("failed to find user %s: %v", userID, err)
-		return false
+		return false, err
 	}
 
-	// Директор и ГИП могут всё
-	if user.Role == RoleDirector || user.Role == RoleGIP {
-		return true
-	}
+	// Права на вложение наследуются от прав на задачу
+	switch action {
+	case ActionUpload, ActionCreate:
+		// Загружать файлы могут те, кто может редактировать задачу
+		return c.checkTask(ctx, user, taskID, ActionEdit)
 
-	// Руководитель отдела - только проекты своего отдела
-	// Проектный менеджер - только свои проекты
+	case ActionView, ActionDownload:
+		// Смотреть файлы могут те, кто может видеть задачу
+		return c.checkTask(ctx, user, taskID, ActionView)
 
-	if user.Role == RoleDepartmentManager {
-		ok, err := p.memberRepo.IsProjectInDepartment(ctx, projectID, *user.DepartmentID)
-		if err != nil {
-			return false
+	case ActionDelete:
+		// только автор или менеджер
+		uploadedBy, _ := c.attachmentRepo.GetUploadedBy(ctx, attachmentID)
+		if user.ID == uploadedBy {
+			return true, nil
 		}
-		return ok
-	}
+		return c.checkTask(ctx, user, taskID, ActionEdit)
 
-	if user.Role == RoleProjectManager {
-		ok, err := p.memberRepo.IsManagerOfProject(ctx, userID, projectID)
-		if err != nil {
-			return false
-		}
-		return ok
+	default:
+		return false, nil
 	}
-
-	return false
 }

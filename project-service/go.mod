@@ -4,6 +4,7 @@ go 1.24.4
 
 require (
 	building-services v0.0.0-00010101000000-000000000000
+	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.12.0
 	github.com/rabbitmq/amqp091-go v1.10.0
 	google.golang.org/grpc v1.78.0

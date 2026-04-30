@@ -36,6 +36,28 @@ func AuthRequired(jwtSecret string) gin.HandlerFunc {
 	}
 }
 
+func RequireRole(allowedRoles ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role, exists := c.Get("user_role")
+		if !exists {
+			c.JSON(401, gin.H{"error": "unauthorized"})
+			c.Abort()
+			return
+		}
+
+		roleStr := role.(string)
+		for _, allowed := range allowedRoles {
+			if roleStr == allowed {
+				c.Next()
+				return
+			}
+		}
+
+		c.JSON(403, gin.H{"error": "insufficient permissions"})
+		c.Abort()
+	}
+}
+
 func extractToken(c *gin.Context) string {
 	auth := c.GetHeader("Authorization")
 	if strings.HasPrefix(auth, "Bearer ") {
