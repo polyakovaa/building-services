@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Задача | ГенСей</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/app.js"></script>
+    <link rel="stylesheet" href="/static/task.css">
+</head>
+<body class="dashboard-body">
+    <div class="dashboard-container">
+        <div class="header">
+            <a href="/tasks" class="back-link">← Назад к задачам</a>
+            <h1>Задача</h1>
+            <div class="user-info">
+                <span class="user-name" id="userName"></span>
+                <span class="user-role" id="userRole"></span>
+                <button class="logout-btn" onclick="logout()">Выйти</button>
+            </div>
+        </div>
+
+        <div class="task-page-wrapper">
+            <div class="task-content-container" id="taskContent">
+                <div class="loading">Загрузка...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="taskModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle">Редактировать задачу</h3>
+            <input type="hidden" id="taskId">
+            <div class="form-group">
+                <label>Название задачи</label>
+                <input type="text" id="taskTitle" placeholder="Введите название">
+            </div>
+            <div class="form-group">
+                <label>Описание</label>
+                <textarea id="taskDescription" rows="3" placeholder="Введите описание"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Дедлайн</label>
+                <input type="date" id="taskDeadline">
+            </div>
+            <div class="modal-buttons">
+                <button class="cancel-btn" onclick="closeTaskModal()">Отмена</button>
+                <button class="save-btn" onclick="saveTask()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="taskStatusModal" class="modal">
+        <div class="modal-content status-modal">
+            <h3>Изменение статуса задачи</h3>
+            <p>Выберите новый статус для задачи</p>
+            <div class="status-options" id="taskStatusOptions">
+                <button class="status-option" data-status="1">К выполнению</button>
+                <button class="status-option" data-status="2">В работе</button>
+                <button class="status-option" data-status="3">Завершена</button>
+                <button class="status-option" data-status="4">Заблокирована</button>
+            </div>
+            <div class="modal-buttons">
+                <button class="cancel-btn" onclick="closeTaskStatusModal()">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentTaskData = null;
+        let currentUserId = null;
+        let currentTaskId = null;
+
+        function getTaskIdFromUrl() {
+            const path = window.location.pathname;
+            const match = path.match(/\/task\/(.+)/);
+            return match ? match[1] : null;
+        }
+
+        async function loadParentTask(parentTaskId) {
+            if (!parentTaskId) return null;
+            try {
+                const response = await apiRequest(`/api/tasks/${parentTaskId}`);
+                if (response.ok) {
+                    return await response.json();
+                }
+            } catch (err) {
+                console.error('Failed to load parent task:', err);
+            }
+            return null;
+        }
+
+        async function loadSubtasks(projectId, parentTaskId) {
+            if (!projectId || !parentTaskId) return [];
+            try {
+                const response = await apiRequest(`/api/projects/${projectId}/tasks?parent_task_id=${parentTaskId}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    return data.tasks || [];
+                }
+            } catch (err) {
+                console.error('Failed to load subtasks:', err);
+            }
+            return [];
+        }
+
+        function getFileIcon(type) {
+            const icons = { 1: '📷', 2: '📄', 3: '📐', 4: '📎' };
+            return icons[type] || '📎';
+        }
+
+        function downloadFile(url) {
+            window.open(url, '_blank');
+        }
+
+        async function editTask() {
+            if (!currentTaskData) return;
+            
+            document.getElementById('modalTitle').innerText = 'Редактировать задачу';
+            document.getElementById('taskId').value = currentTaskData.id;
+            document.getElementById('taskTitle').value = currentTaskData.title || '';
+            document.getElementById('taskDescription').value = currentTaskData.description || '';
+            if (currentTaskData.deadline) {
+                const d = new Date(currentTaskData.deadline.seconds * 1000);
+                document.getElementById('taskDeadline').value = d.toISOString().split('T')[0];
+            } else {
+                document.getElementById('taskDeadline').value = '';
+            }
+            document.getElementById('taskModal').classList.add('active');
+        }
+
+        async function saveTask() {
+            const id = document.getElementById('taskId').value;
+            const data = {
+                title: document.getElementById('taskTitle').value,
+                description: document.getElementById('taskDescription').value,
+                deadline: document.getElementById('taskDeadline').value ? document.getElementById('taskDeadline').value + 'T00:00:00Z' : null
+            };
+            
+            if (!data.title) {
+                alert('Введите название задачи');
+                return;
+            }
+            
+            try {
+                const response = await apiRequest(`/api/tasks/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    closeTaskModal();
+                    loadTask();
+                    alert('Задача обновлена');
+                } else {
+                    const error = await response.json();
+                    alert('Ошибка: ' + (error.error || 'Неизвестная ошибка'));
+                }
+            } catch (err) {
+                alert('Ошибка соединения');
+            }
+        }
+
+        async function deleteTask() {
+            if (!currentTaskData) return;
+            if (confirm('Удалить задачу? Это действие нельзя отменить.')) {
+                try {
+                    const response = await apiRequest(`/api/tasks/${currentTaskData.id}`, { method: 'DELETE' });
+                    if (response.ok) {
+                        alert('Задача удалена');
+                        window.location.href = '/tasks';
+                    } else {
+                        alert('Ошибка удаления');
+                    }
+                } catch (err) {
+                    alert('Ошибка соединения');
+                }
+            }
+        }
+
+        function openTaskStatusModal() {
+            if (!currentTaskData) return;
+            currentTaskId = currentTaskData.id;
+            document.getElementById('taskStatusModal').classList.add('active');
+        }
+
+        function closeTaskStatusModal() {
+            document.getElementById('taskStatusModal').classList.remove('active');
+            currentTaskId = null;
+        }
+
+        async function changeTaskStatus(status) {
+            if (!currentTaskId) return;
+            
+            const statusMap = {
+                1: 'todo',
+                2: 'in_progress',
+                3: 'completed',
+                4: 'blocked'
+            };
+            
+            try {
+                const response = await apiRequest(`/api/tasks/${currentTaskId}/status`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ status: statusMap[status] })
+                });
+                if (response.ok) {
+                    closeTaskStatusModal();
+                    loadTask();
+                    alert('Статус обновлен');
+                } else {
+                    const error = await response.json();
+                    alert('Ошибка: ' + (error.error || 'Неизвестная ошибка'));
+                }
+            } catch (err) {
+                alert('Ошибка соединения');
+            }
+        }
+
+        function closeTaskModal() {
+            document.getElementById('taskModal').classList.remove('active');
+        }
+
+        async function loadTask() {
+            const taskId = getTaskIdFromUrl();
+            if (!taskId) {
+                document.getElementById('taskContent').innerHTML = '<div class="error">ID задачи не указан</div>';
+                return;
+            }
+            
+            
+            const container = document.getElementById('taskContent');
+            container.innerHTML = '<div class="loading">Загрузка...</div>';
+            
+            try {
+                const taskResponse = await apiRequest(`/api/tasks/${taskId}`);
+                if (!taskResponse.ok) {
+                    container.innerHTML = '<div class="error">Задача не найдена</div>';
+                    return;
+                }
+                const task = await taskResponse.json();
+                currentTaskData = task;
+                const canDeleteAttachment = currentUserId === task.created_by || currentUserId === task.assigned_to;
+                const canAddAttachment = currentUserId === task.created_by || currentUserId === task.assigned_to;
+
+                const canEdit = currentUserId === task.created_by;
+                const canDelete = currentUserId === task.created_by;
+                const canChangeStatus = true;
+
+                let parentTaskHtml = '';
+                if (task.parent_task_id && task.parent_task_id !== '') {
+                    const parentTask = await loadParentTask(task.parent_task_id);
+                    if (parentTask) {
+                        parentTaskHtml = `
+                            <div class="parent-task-card">
+                                <div class="parent-task-title">Основная задача</div>
+                                <a href="/task/${parentTask.id}" class="parent-task-link">${escapeHtml(parentTask.title || 'Без названия')}</a>
+                                <div style="font-size: 13px; color: #64748b; margin-top: 6px;">
+                                    Статус: ${getStatusText(parentTask.status)}
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        parentTaskHtml = `
+                            <div class="parent-task-card">
+                                <div class="parent-task-title">Основная задача</div>
+                                <div style="color: #64748b;">Не удалось загрузить</div>
+                            </div>
+                        `;
+                    }
+                }
+
+                const subtasks = await loadSubtasks(task.project_id, task.id);
+                let subtasksHtml = '';
+                if (subtasks.length > 0) {
+                    subtasksHtml = `
+                        <div class="subtasks-section">
+                            <div class="subtasks-title">Подзадачи (${subtasks.length})</div>
+                            <div class="subtasks-list">
+                                ${subtasks.map(sub => `
+                                    <div class="subtask-item">
+                                        <a href="/task/${sub.id}" class="subtask-link">${escapeHtml(sub.title)}</a>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+                            
+                const attachmentsResponse = await apiRequest(`/api/tasks/${taskId}/attachments`);
+                let attachments = [];
+                if (attachmentsResponse.ok) {
+                    const data = await attachmentsResponse.json();
+                    attachments = data.attachments || [];
+                }
+                
+                const assigneeName = await getUserName(task.assigned_to);
+                const creatorName = await getUserName(task.created_by);
+                const deadlineStatus = getDeadlineStatus(task.deadline);
+                
+                container.innerHTML = `
+                    <div class="task-fixed-header">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h2 style="margin: 0;">${escapeHtml(task.title || 'Без названия')}</h2>
+                            <div class="task-action-buttons">
+                                ${canEdit ? `<button class="edit-task-btn" onclick="editTask()">Редактировать</button>` : ''}
+                                ${canDelete ? `<button class="delete-task-btn" onclick="deleteTask()">Удалить</button>` : ''}
+                                ${canChangeStatus ? `<button class="status-task-btn" onclick="openTaskStatusModal()">Изменить статус</button>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="task-scrollable-body">
+                        ${parentTaskHtml}
+                        <div class="info-grid">
+                            <div class="info-label">Статус</div>
+                            <div class="info-value">
+                                <span class="status-badge ${getStatusClass(task.status)}">${getStatusText(task.status)}</span>
+                            </div>
+                            
+                            <div class="info-label">Приоритет</div>
+                            <div class="info-value ${getPriorityClass(task.priority)}">
+                                ${getPriorityText(task.priority)}
+                            </div>
+                            
+                            <div class="info-label">Исполнитель</div>
+                            <div class="info-value">${escapeHtml(assigneeName)}</div>
+                            
+                            <div class="info-label">Создал</div>
+                            <div class="info-value">${escapeHtml(creatorName)}</div>
+                            
+                            <div class="info-label">Срок выполнения</div>
+                            <div class="info-value">
+                                <span class="${deadlineStatus.class}">${deadlineStatus.text}</span>
+                            </div>
+                            
+                            <div class="info-label">Создана</div>
+                            <div class="info-value">${formatDate(task.created_at)}</div>
+                        </div>
+                        
+                        <div class="description-section">
+                            <div class="description-label">Описание</div>
+                            <div class="description-text">${escapeHtml(task.description || 'Нет описания')}</div>
+                        </div>
+                        ${subtasksHtml}
+                        <div class="attachments-section">
+                        <div class="attachments-title">📎 Вложения</div>
+                        <div class="attachments-list" id="attachmentsList"></div>
+                        ${canAddAttachment ? `
+                            <div class="attachment-upload">
+                                <input type="file" id="attachmentFile" class="file-input">
+                                <button class="upload-btn" onclick="uploadAttachment()">Загрузить</button>
+                            </div>
+                        ` : ''}
+                    
+                `;
+                
+                const attachmentsContainer = document.getElementById('attachmentsList');
+                if (!attachments || attachments.length === 0) {
+                    attachmentsContainer.innerHTML = '<div style="color: #64748b; padding: 12px 0;">Нет вложений</div>';
+                } else {
+                    attachmentsContainer.innerHTML = attachments.map(att => `
+                        <div class="attachment-item">
+                            <span>${getFileIcon(att.type)}</span>
+                            <span class="attachment-name">${escapeHtml(att.file_name)}</span>
+                            <span class="attachment-size">${formatFileSize(att.file_size)}</span>
+                            <a href="#" onclick="downloadFile('${att.file_url}'); return false;" class="attachment-link">Скачать</a>
+                            ${canDeleteAttachment ? `<a href="#" onclick="deleteAttachment('${att.id}'); return false;" class="attachment-link" style="color: #dc2626;">Удалить</a>` : ''}
+                        </div>
+                    `).join('');
+                }
+                
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = '<div class="error">Ошибка загрузки задачи</div>';
+            }
+        }
+
+        async function loadCurrentUserId() {
+            try {
+                const response = await apiRequest('/api/users/me');
+                if (response.ok) {
+                    const user = await response.json();
+                    currentUserId = user.id;
+                }
+            } catch(err) {}
+        }
+        async function uploadAttachment() {
+            const fileInput = document.getElementById('attachmentFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Выберите файл');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch(`${API_URL}/api/tasks/${currentTaskData.id}/attachments`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${getToken()}`
+                    },
+                    body: formData,
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    alert('Файл загружен');
+                    fileInput.value = '';
+                    loadTask();
+                } else {
+                    alert('Ошибка загрузки');
+                }
+            } catch (err) {
+                alert('Ошибка соединения');
+            }
+        }
+
+        async function deleteAttachment(attachmentId) {
+            if (!confirm('Удалить вложение?')) return;
+            
+            try {
+                const response = await apiRequest(`/api/tasks/${currentTaskData.id}/attachments/${attachmentId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    alert('Вложение удалено');
+                    loadTask();
+                } else {
+                    alert('Ошибка удаления');
+                }
+            } catch (err) {
+                alert('Ошибка соединения');
+            }
+        }
+
+        document.querySelectorAll('#taskStatusOptions .status-option').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const status = parseInt(btn.dataset.status);
+                changeTaskStatus(status);
+            });
+        });
+
+        async function init() {
+            await loadUserInfo();
+            await loadCurrentUserId();
+            await loadTask();
+        }
+
+        init();
+    </script>
+</body>
+</html>

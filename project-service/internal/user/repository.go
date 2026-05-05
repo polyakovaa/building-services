@@ -62,3 +62,25 @@ func (r *postgresRepository) Upsert(ctx context.Context, user *User) error {
 		deptID)
 	return err
 }
+
+func (r *postgresRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
+	query := `SELECT id, full_name, email, role, department_id
+              FROM users WHERE email = $1`
+
+	var user User
+	var deptID sql.NullString
+
+	err := r.db.QueryRowContext(ctx, query, email).Scan(
+		&user.ID, &user.FullName, &user.Email, &user.Role,
+		&deptID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if deptID.Valid {
+		user.DepartmentID = &deptID.String
+	}
+
+	return &user, nil
+}

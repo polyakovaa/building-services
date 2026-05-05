@@ -1,13 +1,215 @@
 <!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><title>Проекты</title><link rel="stylesheet" href="/static/style.css"></head>
-<body>
-    <div class="header"><h1>Проекты</h1><button onclick="logout()">Выйти</button></div>
-    <div class="sidebar"><a href="/dashboard">Главная</a><a href="/projects">Проекты</a><a href="/tasks">Задачи</a></div>
-    <div class="main-content"><h2>Список проектов</h2><div id="projectsList">Загрузка...</div></div>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Проекты | ГенСей</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/projects.css">
     <script src="/static/app.js"></script>
-    <script>fetch('/api/projects',{headers:{'Authorization':`Bearer ${localStorage.getItem('access_token')}`}}).then(r=>r.json()).then(data=>{
-        document.getElementById('projectsList').innerHTML = data.map(p=>`<div><b>${p.name}</b> - ${p.customer}</div>`).join('')
-    })</script>
+</head>
+<body class="dashboard-body">
+    <div class="dashboard-container">
+        <div class="header">
+            <a class="back-link" onclick="window.location.href='/dashboard'">← На главную</a>
+            <h1>Проекты</h1>
+            <div class="user-info">
+                <span class="user-name" id="userName">Загрузка...</span>
+                <span class="user-role" id="userRole"></span>
+                <button class="logout-btn" onclick="logout()">Выйти</button>
+            </div>
+        </div>
+
+        <div class="projects-container">
+            <div class="projects-header">
+                <button class="create-btn" id="createProjectBtn">+ Создать проект</button>
+            </div>
+            
+            <div class="filter-tabs">
+                <div class="filter-tab active" data-status="">Все</div>
+                <div class="filter-tab" data-status="1">Активные</div>
+                <div class="filter-tab" data-status="2">Завершенные</div>
+                <div class="filter-tab" data-status="3">Приостановленные</div>
+                <div class="filter-tab" data-status="4">Отмененные</div>
+            </div>
+            
+            <div class="projects-table">
+                <div class="table-wrapper" id="projectsContainer">Загрузка...</div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="projectModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle">Создать проект</h3>
+            <input type="hidden" id="projectId">
+            <div class="form-group">
+                <label>Название проекта</label>
+                <input type="text" id="projectName" placeholder="Введите название">
+            </div>
+            <div class="form-group">
+                <label>Описание</label>
+                <textarea id="projectDescription" rows="3" placeholder="Введите описание"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Адрес объекта</label>
+                <input type="text" id="projectAddress" placeholder="Введите адрес">
+            </div>
+            <div class="form-group">
+                <label>Заказчик</label>
+                <input type="text" id="projectCustomer" placeholder="Введите заказчика">
+            </div>
+            <div class="form-group">
+                <label>Дата начала</label>
+                <input type="date" id="projectStartDate">
+            </div>
+            <div class="form-group">
+                <label>Дата окончания</label>
+                <input type="date" id="projectEndDate">
+            </div>
+            <div class="modal-buttons">
+                <button class="cancel-btn" onclick="closeModal()">Отмена</button>
+                <button class="save-btn" onclick="saveProject()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUserRole = '';
+        let currentStatus = '';
+        let currentProjectId = null;
+        
+        function renderProjectRow(p) {
+            return `
+                <tr>
+                    <td><a href="/project/${p.id}" class="project-link">${escapeHtml(p.name)}</a></td>
+                    <td>${escapeHtml(p.customer || '—')}</td>
+                    <td>${escapeHtml(p.object_address || '—')}</td>
+                    <td><span class="status-badge ${getProjectStatusClass(p.status)}">${getProjectStatusText(p.status)}</span></td>
+                    <td>${p.end_date ? new Date(p.end_date.seconds * 1000).toLocaleDateString() : '—'}</td>
+                </tr>
+            `;
+        }
+        
+        async function loadProjects() {
+            const container = document.getElementById('projectsContainer');
+            container.innerHTML = '<div class="loading">Загрузка...</div>';
+            
+            try {
+                let url = '/api/projects';
+                if (currentStatus) {
+                    url += `?status=${currentStatus}`;
+                }
+                
+                const response = await apiRequest(url);
+    
+                if (!response.ok) {
+                    container.innerHTML = '<div class="empty-state">Ошибка загрузки</div>';
+                    return;
+                }
+                
+                const data = await response.json();
+                const projects = data.projects || (Array.isArray(data) ? data : []);
+                if (projects.length === 0) {
+                    container.innerHTML = '<div class="empty-state">Нет проектов</div>';
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Название</th>
+                                <th>Заказчик</th>
+                                <th>Адрес</th>
+                                <th>Статус</th>
+                                <th>Дедлайн</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${projects.map(renderProjectRow).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = '<div class="empty-state">Ошибка загрузки</div>';
+            }
+        }
+        
+        function openCreateModal() {
+            document.getElementById('modalTitle').innerText = 'Создать проект';
+            document.getElementById('projectId').value = '';
+            document.getElementById('projectName').value = '';
+            document.getElementById('projectDescription').value = '';
+            document.getElementById('projectAddress').value = '';
+            document.getElementById('projectCustomer').value = '';
+            document.getElementById('projectStartDate').value = '';
+            document.getElementById('projectEndDate').value = '';
+            document.getElementById('projectModal').classList.add('active');
+        }
+        
+        async function saveProject() {
+            const id = document.getElementById('projectId').value;
+            const data = {
+                name: document.getElementById('projectName').value,
+                description: document.getElementById('projectDescription').value,
+                object_address: document.getElementById('projectAddress').value,
+                customer: document.getElementById('projectCustomer').value,
+                start_date: document.getElementById('projectStartDate').value ? document.getElementById('projectStartDate').value + 'T00:00:00Z' : null,
+                end_date: document.getElementById('projectEndDate').value ? document.getElementById('projectEndDate').value + 'T00:00:00Z' : null
+            };
+            
+            if (!data.name) {
+                alert('Введите название проекта');
+                return;
+            }
+            
+            try {
+                let response;
+                if (id) {
+                    response = await apiRequest(`/api/projects/${id}`, {
+                        method: 'PUT',
+                        body: JSON.stringify(data)
+                    });
+                } else {
+                    response = await apiRequest('/api/projects', {
+                        method: 'POST',
+                        body: JSON.stringify(data)
+                    });
+                }
+                
+                if (response.ok) {
+                    closeModal();
+                    loadProjects();
+                    alert(id ? 'Проект обновлен' : 'Проект создан');
+                } else {
+                    const error = await response.json();
+                    alert('Ошибка: ' + (error.error || 'Неизвестная ошибка'));
+                }
+            } catch (err) {
+                alert('Ошибка соединения');
+            }
+        }
+        
+        
+        function closeModal() {
+            document.getElementById('projectModal').classList.remove('active');
+        }
+        
+        document.getElementById('createProjectBtn').addEventListener('click', openCreateModal);
+        
+        document.querySelectorAll('.filter-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentStatus = tab.dataset.status;
+                loadProjects();
+            });
+        });
+        
+        loadUserInfo();
+        loadProjects();
+    </script>
 </body>
 </html>

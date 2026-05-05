@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	projectv1 "building-services/gen/project/v1"
 
@@ -31,6 +32,21 @@ func GetGRPCContext(c *gin.Context) (context.Context, error) {
 }
 
 func ConvertStatus(statusStr string) projectv1.ProjectStatus {
+	if num, err := strconv.Atoi(statusStr); err == nil {
+		switch num {
+		case 1:
+			return projectv1.ProjectStatus_PROJECT_STATUS_ACTIVE
+		case 2:
+			return projectv1.ProjectStatus_PROJECT_STATUS_COMPLETED
+		case 3:
+			return projectv1.ProjectStatus_PROJECT_STATUS_ON_HOLD
+		case 4:
+			return projectv1.ProjectStatus_PROJECT_STATUS_CANCELLED
+		default:
+			return projectv1.ProjectStatus_PROJECT_STATUS_UNSPECIFIED
+		}
+	}
+
 	switch statusStr {
 	case "active":
 		return projectv1.ProjectStatus_PROJECT_STATUS_ACTIVE

@@ -614,6 +614,162 @@ func (x *DeleteProjectRequest) GetId() string {
 	return ""
 }
 
+type GetUserRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUserRequest) Reset() {
+	*x = GetUserRequest{}
+	mi := &file_project_v1_project_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserRequest) ProtoMessage() {}
+
+func (x *GetUserRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_project_v1_project_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserRequest.ProtoReflect.Descriptor instead.
+func (*GetUserRequest) Descriptor() ([]byte, []int) {
+	return file_project_v1_project_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *GetUserRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type User struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	FullName      string                 `protobuf:"bytes,2,opt,name=full_name,json=fullName,proto3" json:"full_name,omitempty"`
+	Email         string                 `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`
+	Role          string                 `protobuf:"bytes,4,opt,name=role,proto3" json:"role,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *User) Reset() {
+	*x = User{}
+	mi := &file_project_v1_project_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *User) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*User) ProtoMessage() {}
+
+func (x *User) ProtoReflect() protoreflect.Message {
+	mi := &file_project_v1_project_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use User.ProtoReflect.Descriptor instead.
+func (*User) Descriptor() ([]byte, []int) {
+	return file_project_v1_project_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *User) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *User) GetFullName() string {
+	if x != nil {
+		return x.FullName
+	}
+	return ""
+}
+
+func (x *User) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *User) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+type GetUserByEmailRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUserByEmailRequest) Reset() {
+	*x = GetUserByEmailRequest{}
+	mi := &file_project_v1_project_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserByEmailRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserByEmailRequest) ProtoMessage() {}
+
+func (x *GetUserByEmailRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_project_v1_project_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserByEmailRequest.ProtoReflect.Descriptor instead.
+func (*GetUserByEmailRequest) Descriptor() ([]byte, []int) {
+	return file_project_v1_project_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *GetUserByEmailRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
 var File_project_v1_project_proto protoreflect.FileDescriptor
 
 const file_project_v1_project_proto_rawDesc = "" +
@@ -666,13 +822,22 @@ const file_project_v1_project_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x121\n" +
 	"\x06status\x18\x02 \x01(\x0e2\x19.project.v1.ProjectStatusR\x06status\"&\n" +
 	"\x14DeleteProjectRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id*\xa2\x01\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\" \n" +
+	"\x0eGetUserRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"]\n" +
+	"\x04User\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\tfull_name\x18\x02 \x01(\tR\bfullName\x12\x14\n" +
+	"\x05email\x18\x03 \x01(\tR\x05email\x12\x12\n" +
+	"\x04role\x18\x04 \x01(\tR\x04role\"-\n" +
+	"\x15GetUserByEmailRequest\x12\x14\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email*\xa2\x01\n" +
 	"\rProjectStatus\x12\x1e\n" +
 	"\x1aPROJECT_STATUS_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15PROJECT_STATUS_ACTIVE\x10\x01\x12\x1c\n" +
 	"\x18PROJECT_STATUS_COMPLETED\x10\x02\x12\x1a\n" +
 	"\x16PROJECT_STATUS_ON_HOLD\x10\x03\x12\x1c\n" +
-	"\x18PROJECT_STATUS_CANCELLED\x10\x042\xd4\x03\n" +
+	"\x18PROJECT_STATUS_CANCELLED\x10\x042\xd4\x04\n" +
 	"\x0eProjectService\x12F\n" +
 	"\rCreateProject\x12 .project.v1.CreateProjectRequest\x1a\x13.project.v1.Project\x12@\n" +
 	"\n" +
@@ -680,7 +845,9 @@ const file_project_v1_project_proto_rawDesc = "" +
 	"\fListProjects\x12\x1f.project.v1.ListProjectsRequest\x1a .project.v1.ListProjectsResponse\x12F\n" +
 	"\rUpdateProject\x12 .project.v1.UpdateProjectRequest\x1a\x13.project.v1.Project\x12I\n" +
 	"\rDeleteProject\x12 .project.v1.DeleteProjectRequest\x1a\x16.google.protobuf.Empty\x12R\n" +
-	"\x13ChangeProjectStatus\x12&.project.v1.ChangeProjectStatusRequest\x1a\x13.project.v1.ProjectB\x1aZ\x18gen/project/v1;projectv1b\x06proto3"
+	"\x13ChangeProjectStatus\x12&.project.v1.ChangeProjectStatusRequest\x1a\x13.project.v1.Project\x127\n" +
+	"\aGetUser\x12\x1a.project.v1.GetUserRequest\x1a\x10.project.v1.User\x12E\n" +
+	"\x0eGetUserByEmail\x12!.project.v1.GetUserByEmailRequest\x1a\x10.project.v1.UserB\x1aZ\x18gen/project/v1;projectv1b\x06proto3"
 
 var (
 	file_project_v1_project_proto_rawDescOnce sync.Once
@@ -695,7 +862,7 @@ func file_project_v1_project_proto_rawDescGZIP() []byte {
 }
 
 var file_project_v1_project_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_project_v1_project_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_project_v1_project_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_project_v1_project_proto_goTypes = []any{
 	(ProjectStatus)(0),                 // 0: project.v1.ProjectStatus
 	(*Project)(nil),                    // 1: project.v1.Project
@@ -706,20 +873,23 @@ var file_project_v1_project_proto_goTypes = []any{
 	(*UpdateProjectRequest)(nil),       // 6: project.v1.UpdateProjectRequest
 	(*ChangeProjectStatusRequest)(nil), // 7: project.v1.ChangeProjectStatusRequest
 	(*DeleteProjectRequest)(nil),       // 8: project.v1.DeleteProjectRequest
-	(*timestamppb.Timestamp)(nil),      // 9: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),              // 10: google.protobuf.Empty
+	(*GetUserRequest)(nil),             // 9: project.v1.GetUserRequest
+	(*User)(nil),                       // 10: project.v1.User
+	(*GetUserByEmailRequest)(nil),      // 11: project.v1.GetUserByEmailRequest
+	(*timestamppb.Timestamp)(nil),      // 12: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),              // 13: google.protobuf.Empty
 }
 var file_project_v1_project_proto_depIdxs = []int32{
 	0,  // 0: project.v1.Project.status:type_name -> project.v1.ProjectStatus
-	9,  // 1: project.v1.Project.start_date:type_name -> google.protobuf.Timestamp
-	9,  // 2: project.v1.Project.end_date:type_name -> google.protobuf.Timestamp
-	9,  // 3: project.v1.Project.created_at:type_name -> google.protobuf.Timestamp
-	9,  // 4: project.v1.Project.updated_at:type_name -> google.protobuf.Timestamp
-	9,  // 5: project.v1.CreateProjectRequest.start_date:type_name -> google.protobuf.Timestamp
-	9,  // 6: project.v1.CreateProjectRequest.end_date:type_name -> google.protobuf.Timestamp
+	12, // 1: project.v1.Project.start_date:type_name -> google.protobuf.Timestamp
+	12, // 2: project.v1.Project.end_date:type_name -> google.protobuf.Timestamp
+	12, // 3: project.v1.Project.created_at:type_name -> google.protobuf.Timestamp
+	12, // 4: project.v1.Project.updated_at:type_name -> google.protobuf.Timestamp
+	12, // 5: project.v1.CreateProjectRequest.start_date:type_name -> google.protobuf.Timestamp
+	12, // 6: project.v1.CreateProjectRequest.end_date:type_name -> google.protobuf.Timestamp
 	0,  // 7: project.v1.ListProjectsRequest.status_filter:type_name -> project.v1.ProjectStatus
 	1,  // 8: project.v1.ListProjectsResponse.projects:type_name -> project.v1.Project
-	9,  // 9: project.v1.UpdateProjectRequest.end_date:type_name -> google.protobuf.Timestamp
+	12, // 9: project.v1.UpdateProjectRequest.end_date:type_name -> google.protobuf.Timestamp
 	0,  // 10: project.v1.ChangeProjectStatusRequest.status:type_name -> project.v1.ProjectStatus
 	2,  // 11: project.v1.ProjectService.CreateProject:input_type -> project.v1.CreateProjectRequest
 	3,  // 12: project.v1.ProjectService.GetProject:input_type -> project.v1.GetProjectRequest
@@ -727,14 +897,18 @@ var file_project_v1_project_proto_depIdxs = []int32{
 	6,  // 14: project.v1.ProjectService.UpdateProject:input_type -> project.v1.UpdateProjectRequest
 	8,  // 15: project.v1.ProjectService.DeleteProject:input_type -> project.v1.DeleteProjectRequest
 	7,  // 16: project.v1.ProjectService.ChangeProjectStatus:input_type -> project.v1.ChangeProjectStatusRequest
-	1,  // 17: project.v1.ProjectService.CreateProject:output_type -> project.v1.Project
-	1,  // 18: project.v1.ProjectService.GetProject:output_type -> project.v1.Project
-	5,  // 19: project.v1.ProjectService.ListProjects:output_type -> project.v1.ListProjectsResponse
-	1,  // 20: project.v1.ProjectService.UpdateProject:output_type -> project.v1.Project
-	10, // 21: project.v1.ProjectService.DeleteProject:output_type -> google.protobuf.Empty
-	1,  // 22: project.v1.ProjectService.ChangeProjectStatus:output_type -> project.v1.Project
-	17, // [17:23] is the sub-list for method output_type
-	11, // [11:17] is the sub-list for method input_type
+	9,  // 17: project.v1.ProjectService.GetUser:input_type -> project.v1.GetUserRequest
+	11, // 18: project.v1.ProjectService.GetUserByEmail:input_type -> project.v1.GetUserByEmailRequest
+	1,  // 19: project.v1.ProjectService.CreateProject:output_type -> project.v1.Project
+	1,  // 20: project.v1.ProjectService.GetProject:output_type -> project.v1.Project
+	5,  // 21: project.v1.ProjectService.ListProjects:output_type -> project.v1.ListProjectsResponse
+	1,  // 22: project.v1.ProjectService.UpdateProject:output_type -> project.v1.Project
+	13, // 23: project.v1.ProjectService.DeleteProject:output_type -> google.protobuf.Empty
+	1,  // 24: project.v1.ProjectService.ChangeProjectStatus:output_type -> project.v1.Project
+	10, // 25: project.v1.ProjectService.GetUser:output_type -> project.v1.User
+	10, // 26: project.v1.ProjectService.GetUserByEmail:output_type -> project.v1.User
+	19, // [19:27] is the sub-list for method output_type
+	11, // [11:19] is the sub-list for method input_type
 	11, // [11:11] is the sub-list for extension type_name
 	11, // [11:11] is the sub-list for extension extendee
 	0,  // [0:11] is the sub-list for field type_name
@@ -751,7 +925,7 @@ func file_project_v1_project_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_project_v1_project_proto_rawDesc), len(file_project_v1_project_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   8,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

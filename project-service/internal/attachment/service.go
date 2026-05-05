@@ -96,7 +96,7 @@ func (s *Service) DeleteAttachment(ctx context.Context, req *projectv1.DeleteAtt
 		if errors.Is(err, sql.ErrNoRows) {
 			return &emptypb.Empty{}, nil
 		}
-		return nil, fmt.Errorf("failed to delete attacjment: %w", err)
+		return nil, fmt.Errorf("failed to delete attachment: %w", err)
 	}
 
 	return &emptypb.Empty{}, nil

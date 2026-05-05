@@ -9,6 +9,8 @@ import (
 	"errors"
 	"fmt"
 
+	"building-services/project-service/internal/user"
+
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -16,13 +18,15 @@ import (
 type Service struct {
 	projectRepo ProjectRepo
 	memberRepo  MemberRepo
+	userRepo    UserRepo
 }
 
 func NewService(projectRepo ProjectRepo,
-	memberRepo MemberRepo) *Service {
+	memberRepo MemberRepo, userRepo UserRepo) *Service {
 	return &Service{
 		projectRepo: projectRepo,
 		memberRepo:  memberRepo,
+		userRepo:    userRepo,
 	}
 }
 
@@ -34,28 +38,37 @@ type MemberRepo interface {
 	Remove(ctx context.Context, projectID, userID string) error
 	GetProjectMembers(ctx context.Context, projectID string) ([]*projectv1.ProjectMember, error)
 }
+type UserRepo interface {
+	FindByID(ctx context.Context, id string) (*user.User, error)
+}
 
 type ProjectRepo interface {
 	FindByID(ctx context.Context, id string) (*projectv1.Project, error)
 }
 
 func (s *Service) AddMember(ctx context.Context, req *projectv1.AddMemberRequest) (*projectv1.ProjectMember, error) {
-
 	if req.UserId == "" {
 		return nil, fmt.Errorf("%w: user_id required", errs.ErrInvalidInput)
 	}
-
 	if req.ProjectId == "" {
 		return nil, fmt.Errorf("%w: project_id required", errs.ErrInvalidInput)
 	}
+	user, err := s.userRepo.FindByID(ctx, req.UserId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
 
 	member := &projectv1.ProjectMember{
-		ProjectId:    req.ProjectId,
-		UserId:       req.UserId,
-		DepartmentId: req.DepartmentId,
-		JoinedAt:     timestamppb.Now()}
+		ProjectId: req.ProjectId,
+		UserId:    req.UserId,
+		JoinedAt:  timestamppb.Now(),
+	}
 
-	err := s.memberRepo.Add(ctx, member)
+	if user.DepartmentID != nil {
+		member.DepartmentId = *user.DepartmentID
+	}
+
+	err = s.memberRepo.Add(ctx, member)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add member: %w", err)
 	}

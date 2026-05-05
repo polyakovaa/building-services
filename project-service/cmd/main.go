@@ -6,6 +6,7 @@ import (
 	"building-services/project-service/internal/attachment"
 	"building-services/project-service/internal/authz"
 	"building-services/project-service/internal/consumer"
+	department "building-services/project-service/internal/departmnet"
 	"building-services/project-service/internal/member"
 	"building-services/project-service/internal/project"
 	"building-services/project-service/internal/task"
@@ -40,19 +41,22 @@ func main() {
 	timelineRepo := timeline.NewRepository(db)
 	taskRepo := task.NewRepository(db)
 	attachmentRepo := attachment.NewRepository(db)
-	checker := authz.NewPermissionChecker(userRepo, memberRepo, taskRepo, attachmentRepo)
+	departmentRepo := department.NewRepository(db)
+	checker := authz.NewPermissionChecker(userRepo, memberRepo, taskRepo, attachmentRepo, departmentRepo)
 
 	projectService := project.NewService(projectRepo, memberRepo, userRepo, timelineRepo, checker)
-	memberService := member.NewService(projectRepo, memberRepo)
+	memberService := member.NewService(projectRepo, memberRepo, userRepo)
 	timelineService := timeline.NewService(timelineRepo, projectRepo)
 	taskService := task.NewService(taskRepo, projectRepo, checker)
 	attachmentService := attachment.NewService(taskRepo, attachmentRepo, checker)
+	departmentService := department.NewService(departmentRepo, userRepo, checker)
 
 	projectHandler := project.NewHandler(projectService)
 	memberHandler := member.NewHandler(memberService)
 	timelineHandler := timeline.NewHandler(timelineService)
 	taskHandler := task.NewHandler(taskService)
 	attachmentHandler := attachment.NewHandler(attachmentService)
+	departmentHandler := department.NewHandler(departmentService)
 
 	userConsumer, err := consumer.NewUserConsumer(userRepo, "amqp://guest:guest@rabbitmq:5672/")
 	if err != nil {
@@ -75,6 +79,7 @@ func main() {
 	projectv1.RegisterProjectTimelineServiceServer(grpcServer, timelineHandler)
 	projectv1.RegisterTaskServiceServer(grpcServer, taskHandler)
 	projectv1.RegisterAttachmentServiceServer(grpcServer, attachmentHandler)
+	projectv1.RegisterDepartmentServiceServer(grpcServer, departmentHandler)
 
 	lis, err := net.Listen("tcp", ":"+cfg.Server.Port)
 	if err != nil {

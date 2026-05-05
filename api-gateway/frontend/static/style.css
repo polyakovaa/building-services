@@ -6,7 +6,7 @@
 
 body {
     font-family: 'Roboto', sans-serif;
-    background: #c1e0ff;
+    background: #e6f3ff;
     min-height: 100vh;
     display: flex;
     justify-content: center;
@@ -383,3 +383,4 @@ button:hover {
     border-radius: 10px;
     margin-left: auto;
 }
+

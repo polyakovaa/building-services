@@ -1,13 +1,518 @@
 <!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><title>Проекты</title><link rel="stylesheet" href="/static/style.css"></head>
-<body>
-    <div class="header"><h1>Проекты</h1><button onclick="logout()">Выйти</button></div>
-    <div class="sidebar"><a href="/dashboard">Главная</a><a href="/projects">Проекты</a><a href="/tasks">Задачи</a></div>
-    <div class="main-content"><h2>Список проектов</h2><div id="projectsList">Загрузка...</div></div>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Проект | ГенСей</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/project.css">
     <script src="/static/app.js"></script>
-    <script>fetch('/api/projects',{headers:{'Authorization':`Bearer ${localStorage.getItem('access_token')}`}}).then(r=>r.json()).then(data=>{
-        document.getElementById('projectsList').innerHTML = data.map(p=>`<div><b>${p.name}</b> - ${p.customer}</div>`).join('')
-    })</script>
+</head>
+<body class="dashboard-body">
+    <div class="dashboard-container">
+        <div class="header">
+            <a class="back-link" onclick="window.location.href='/projects'">← Назад к проектам</a>
+            <h1>Проект</h1>
+            <div class="user-info">
+                <span class="user-name" id="userName">Загрузка...</span>
+                <span class="user-role" id="userRole"></span>
+                <button class="logout-btn" onclick="logout()">Выйти</button>
+            </div>
+        </div>
+
+        <div class="project-container" id="projectContent">
+            <div class="loading">Загрузка...</div>
+        </div>
+    </div>
+
+    <!-- Модалки -->
+    <div id="editProjectModal" class="modal">
+        <div class="modal-content">
+            <h3>Редактировать проект</h3>
+            <div class="form-group">
+                <label>Название проекта</label>
+                <input type="text" id="editProjectName">
+            </div>
+            <div class="form-group">
+                <label>Описание</label>
+                <textarea id="editProjectDescription" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Адрес объекта</label>
+                <input type="text" id="editProjectAddress">
+            </div>
+            <div class="form-group">
+                <label>Заказчик</label>
+                <input type="text" id="editProjectCustomer">
+            </div>
+            <div class="form-group">
+                <label>Дата окончания</label>
+                <input type="date" id="editProjectEndDate">
+            </div>
+            <div class="modal-buttons">
+                <button class="cancel-btn" onclick="closeEditModal()">Отмена</button>
+                <button class="save-btn" onclick="saveProjectEdit()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="statusModal" class="modal">
+        <div class="modal-content">
+            <h3>Изменение статуса</h3>
+            <div class="status-options">
+                <button class="status-option" data-status="1">Активный</button>
+                <button class="status-option" data-status="2">Завершенный</button>
+                <button class="status-option" data-status="3">Приостановленный</button>
+                <button class="status-option" data-status="4">Отмененный</button>
+            </div>
+            <div class="modal-buttons">
+                <button class="cancel-btn" onclick="closeStatusModal()">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Добавление участника — только email, роль не передаем -->
+    <div id="addMemberModal" class="modal">
+        <div class="modal-content">
+            <h3>Добавить участника</h3>
+            <div class="form-group">
+                <label>Email участника</label>
+                <input type="email" id="memberEmail" placeholder="email@example.com">
+            </div>
+            <!-- Роль убрали — она не передается в бэкенд -->
+            <div class="modal-buttons">
+                <button class="cancel-btn" onclick="closeAddMemberModal()">Отмена</button>
+                <button class="save-btn" onclick="addMember()">Добавить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Создание задачи — email исполнителя -->
+    <div id="createTaskModal" class="modal">
+        <div class="modal-content">
+            <h3>Создать задачу</h3>
+            <div class="form-group">
+                <label>Название</label>
+                <input type="text" id="taskTitle">
+            </div>
+            <div class="form-group">
+                <label>Описание</label>
+                <textarea id="taskDescription" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Дедлайн</label>
+                <input type="date" id="taskDeadline">
+            </div>
+            <div class="form-group">
+                <label>Приоритет</label>
+                <select id="taskPriority">
+                    <option value="1">Низкий</option>
+                    <option value="2" selected>Средний</option>
+                    <option value="3">Высокий</option>
+                    <option value="4">Срочный</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Исполнитель (Email)</label>
+                <input type="email" id="taskAssigneeEmail" placeholder="email@example.com">
+            </div>
+            <div class="modal-buttons">
+                <button class="cancel-btn" onclick="closeTaskModal()">Отмена</button>
+                <button class="save-btn" onclick="createTask()">Создать</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="timelineModal" class="modal">
+        <div class="modal-content">
+            <h3>Добавить дату</h3>
+            <div class="form-group">
+                <label>Тип даты</label>
+                <select id="timelineType">
+                    <option value="contract_date">Дата договора</option>
+                    <option value="work_start_date">Начало работ</option>
+                    <option value="work_end_date">Окончание работ</option>
+                    <option value="handover_date">Передача заказчику</option>
+                    <option value="comments_date">Дата замечаний</option>
+                    <option value="comments_fixed_date">Исправление замечаний</option>
+                    <option value="acceptance_date">Дата приемки</option>
+                    <option value="final_payment_date">Финальная оплата</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Дата</label>
+                <input type="date" id="timelineDate">
+            </div>
+            <div class="modal-buttons">
+                <button class="cancel-btn" onclick="closeTimelineModal()">Отмена</button>
+                <button class="save-btn" onclick="saveTimelineDate()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let projectId = null;
+        let currentUserRole = '';
+        let currentUserId = '';
+        let currentTab = 'info';
+        let currentProjectData = null;
+
+        function getProjectIdFromUrl() {
+            const path = window.location.pathname;
+            const match = path.match(/\/project\/(.+)/);
+            return match ? match[1] : null;
+        }
+
+        function getUserRoleName(role) {
+            const roles = {
+                'ROLE_DIRECTOR': 'Директор',
+                'ROLE_GIP': 'ГИП',
+                'ROLE_DEPARTMENT_MANAGER': 'Руководитель отдела',
+                'ROLE_PROJECT_MANAGER': 'Проектный менеджер',
+                'ROLE_WORKER': 'Инженер'
+            };
+            return roles[role] || role || 'Участник';
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
+            loadTabContent(tab);
+        }
+        
+        async function loadTabContent(tab) {
+            const container = document.getElementById('tabContent');
+            container.innerHTML = '<div class="loading">Загрузка...</div>';
+            
+            try {
+                if (tab === 'info') await loadInfoTab(container);
+                else if (tab === 'members') await loadMembersTab(container);
+                else if (tab === 'timeline') await loadTimelineTab(container);
+                else if (tab === 'tasks') await loadTasksTab(container);
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = '<div class="empty-state">Ошибка загрузки</div>';
+            }
+        }
+        
+
+        async function loadInfoTab(container) {
+            const response = await apiRequest(`/api/projects/${projectId}`);
+            if (!response.ok) {
+                container.innerHTML = '<div class="empty-state">Ошибка загрузки</div>';
+                return;
+            }
+            const project = await response.json();
+            currentProjectData = project;
+            
+            const canEdit = currentUserRole !== 'ROLE_WORKER';
+            const canDelete = currentUserRole === 'ROLE_DIRECTOR';
+            const canChangeStatus = currentUserRole !== 'ROLE_WORKER';
+            
+            const creatorName = await getUserName(project.created_by);
+            
+            container.innerHTML = `
+                <div class="info-grid">
+                    <div class="info-label">Название</div>
+                    <div class="info-value">${escapeHtml(project.name)}</div>
+                    <div class="info-label">Описание</div>
+                    <div class="info-value">${escapeHtml(project.description || '—')}</div>
+                    <div class="info-label">Адрес объекта</div>
+                    <div class="info-value">${escapeHtml(project.object_address || '—')}</div>
+                    <div class="info-label">Заказчик</div>
+                    <div class="info-value">${escapeHtml(project.customer || '—')}</div>
+                    <div class="info-label">Статус</div>
+                    <div class="info-value"><span class="status-badge ${getProjectStatusClass(project.status)}">${getProjectStatusText(project.status)}</span></div>
+                    <div class="info-label">Дата начала</div>
+                    <div class="info-value">${formatDate(project.start_date)}</div>
+                    <div class="info-label">Дата окончания</div>
+                    <div class="info-value">${formatDate(project.end_date)}</div>
+                    <div class="info-label">Создал</div>
+                    <div class="info-value">${escapeHtml(creatorName)}</div>
+                </div>
+                <div class="action-buttons">
+                    ${canEdit ? `<button class="edit-project-btn" onclick="openEditModal()">Редактировать</button>` : ''}
+                    ${canChangeStatus ? `<button class="status-project-btn" onclick="openStatusModal()">Изменить статус</button>` : ''}
+                    ${canDelete ? `<button class="delete-project-btn" onclick="deleteProject()">Удалить</button>` : ''}
+                </div>
+            `;
+        }
+        
+        async function loadMembersTab(container) {
+            try {
+                const response = await apiRequest(`/api/projects/${projectId}/members`);
+                if (!response.ok) {
+                    container.innerHTML = '<div class="empty-state">Ошибка загрузки</div>';
+                    return;
+                }
+                const data = await response.json();
+                const members = data.members || [];
+                const canAddMember = currentUserRole !== 'ROLE_WORKER';
+                const canDeleteMember = currentUserRole === 'ROLE_DIRECTOR';
+                
+                const membersWithNames = await Promise.all(members.map(async (m) => {
+                    const userName = await getUserName(m.user_id);
+                    return { ...m, user_name: userName };
+                }));
+                
+                container.innerHTML = `
+                    <div class="section-header">
+                        <h3>Участники</h3>
+                        ${canAddMember ? `<button class="add-member-btn" onclick="openAddMemberModal()">+ Добавить</button>` : ''}
+                    </div>
+                    <div class="members-list">
+                        ${membersWithNames.map(m => `
+                            <div class="member-item">
+                                <div class="member-info"><strong>${escapeHtml(m.user_name)}</strong></div>
+                                <div class="member-meta">
+                                    <span>${formatDate(m.joined_at)}</span>
+                                    ${canDeleteMember && m.user_id !== currentUserId ? `<button class="delete-member-btn" onclick="removeMember('${m.user_id}')">🗑️</button>` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    ${membersWithNames.length === 0 ? '<div class="empty-state">Нет участников</div>' : ''}
+                `;
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = '<div class="empty-state">Ошибка загрузки</div>';
+            }
+        }
+        
+        async function loadTimelineTab(container) {
+            try {
+                const response = await apiRequest(`/api/projects/${projectId}/timeline`);
+                const canEditTimeline = currentUserRole !== 'ROLE_WORKER';
+                
+                let html = `<div class="timeline-header"><h3>Сроки проекта</h3>${canEditTimeline ? `<button class="add-timeline-btn" onclick="openTimelineModal()">+ Добавить дату</button>` : ''}</div><div class="timeline-grid">`;
+                
+                if (response.ok) {
+                    const timeline = await response.json();
+                    const fields = [
+                        { label: 'Дата договора', value: timeline.contract_date, key: 'contract_date' },
+                        { label: 'Начало работ', value: timeline.work_start_date, key: 'work_start_date' },
+                        { label: 'Окончание работ', value: timeline.work_end_date, key: 'work_end_date' },
+                        { label: 'Передача заказчику', value: timeline.handover_date, key: 'handover_date' },
+                        { label: 'Дата замечаний', value: timeline.comments_date, key: 'comments_date' },
+                        { label: 'Исправление замечаний', value: timeline.comments_fixed_date, key: 'comments_fixed_date' },
+                        { label: 'Дата приемки', value: timeline.acceptance_date, key: 'acceptance_date' },
+                        { label: 'Финальная оплата', value: timeline.final_payment_date, key: 'final_payment_date' }
+                    ];
+                    for (const f of fields) {
+                        html += `<div class="timeline-card"><span class="timeline-label">${f.label}</span><span class="timeline-value">${formatDate(f.value) || '—'}</span></div>`;
+                    }
+                } else {
+                    html += '<div class="empty-state">Нет данных</div>';
+                }
+                html += `</div>`;
+                container.innerHTML = html;
+            } catch(err) {
+                container.innerHTML = '<div class="empty-state">Нет данных</div>';
+            }
+        }
+        
+        async function loadTasksTab(container) {
+            const response = await apiRequest(`/api/projects/${projectId}/tasks`);
+            if (!response.ok) {
+                container.innerHTML = '<div class="empty-state">Ошибка загрузки</div>';
+                return;
+            }
+            const data = await response.json();
+            const tasks = data.tasks || [];
+            const canCreateTask = currentUserRole !== 'ROLE_WORKER';
+            
+            const tasksWithNames = await Promise.all(tasks.map(async (t) => {
+                const assigneeName = await getUserName(t.assigned_to);
+                return { ...t, assignee_name: assigneeName };
+            }));
+            
+            container.innerHTML = `
+                <div class="tasks-header">
+                    ${canCreateTask ? `<button class="add-task-btn" onclick="openTaskModal()">+ Создать задачу</button>` : ''}
+                </div>
+                ${tasksWithNames.length === 0 ? '<div class="empty-state">Нет задач</div>' : `
+                    <div class="tasks-table"><div class="table-wrapper"><table><thead><tr><th>Задача</th><th>Исполнитель</th><th>Статус</th><th>Срок</th></tr></thead><tbody>
+                        ${tasksWithNames.map(t => `
+                            <tr onclick="window.location.href='/task/${t.id}'" style="cursor:pointer">
+                                <td><a href="/task/${t.id}" style="color:#4a6cf7">${escapeHtml(t.title)}</a>${t.description ? `<div class="task-description">${escapeHtml(t.description.substring(0,80))}${t.description.length>80?'...':''}</div>` : ''}</td>
+                                <td>${escapeHtml(t.assignee_name)}</td>
+                                <td><span class="status-badge ${getStatusClass(t.status)}">${getStatusText(t.status)}</span></td>
+                                <td>${formatDate(t.deadline)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody></table></div></div>
+                `}
+            `;
+        }
+        
+        async function loadProject() {
+            projectId = getProjectIdFromUrl();
+            if (!projectId) {
+                document.getElementById('projectContent').innerHTML = '<div class="empty-state">ID проекта не указан</div>';
+                return;
+            }
+            const container = document.getElementById('projectContent');
+            container.innerHTML = `<div class="project-header"><div class="project-title" id="projectTitle">Загрузка...</div><div class="project-meta" id="projectMeta"></div></div>
+                <div class="tabs"><div class="tab active" data-tab="info" onclick="switchTab('info')">Общая информация</div>
+                <div class="tab" data-tab="members" onclick="switchTab('members')">Участники</div>
+                <div class="tab" data-tab="timeline" onclick="switchTab('timeline')">Сроки</div>
+                <div class="tab" data-tab="tasks" onclick="switchTab('tasks')">Задачи</div></div>
+                <div id="tabContent" class="tab-content">Загрузка...</div>`;
+            
+            const projectRes = await apiRequest(`/api/projects/${projectId}`);
+            if (projectRes.ok) {
+                const project = await projectRes.json();
+                document.getElementById('projectTitle').textContent = project.name;
+                document.getElementById('projectMeta').innerHTML = `<span>${formatDate(project.start_date)} — ${formatDate(project.end_date)}</span><span>${escapeHtml(project.customer || '—')}</span>`;
+            }
+            await loadTabContent(currentTab);
+        }
+        
+        function openStatusModal() { document.getElementById('statusModal').classList.add('active'); }
+        function closeStatusModal() { document.getElementById('statusModal').classList.remove('active'); }
+        
+        async function changeProjectStatus(status) {
+            const statusMap = { 1: 'active', 2: 'completed', 3: 'on_hold', 4: 'cancelled' };
+            try {
+                const response = await apiRequest(`/api/projects/${projectId}/status`, { method: 'PATCH', body: JSON.stringify({ status: statusMap[status] }) });
+                if (response.ok) { closeStatusModal(); await loadTabContent('info'); alert('Статус обновлен'); }
+                else alert('Ошибка');
+            } catch(err) { alert('Ошибка'); }
+        }
+        
+        async function openEditModal() {
+            const p = currentProjectData;
+            if (p) {
+                document.getElementById('editProjectName').value = p.name || '';
+                document.getElementById('editProjectDescription').value = p.description || '';
+                document.getElementById('editProjectAddress').value = p.object_address || '';
+                document.getElementById('editProjectCustomer').value = p.customer || '';
+                if (p.end_date) {
+                    const d = new Date(p.end_date.seconds * 1000);
+                    document.getElementById('editProjectEndDate').value = d.toISOString().split('T')[0];
+                }
+            }
+            document.getElementById('editProjectModal').classList.add('active');
+        }
+        function closeEditModal() { document.getElementById('editProjectModal').classList.remove('active'); }
+        
+        async function saveProjectEdit() {
+            const data = {
+                name: document.getElementById('editProjectName').value,
+                description: document.getElementById('editProjectDescription').value,
+                object_address: document.getElementById('editProjectAddress').value,
+                customer: document.getElementById('editProjectCustomer').value,
+                end_date: document.getElementById('editProjectEndDate').value ? document.getElementById('editProjectEndDate').value + 'T00:00:00Z' : null
+            };
+            try {
+                const response = await apiRequest(`/api/projects/${projectId}`, { method: 'PUT', body: JSON.stringify(data) });
+                if (response.ok) { closeEditModal(); await loadProject(); alert('Проект обновлен'); }
+                else alert('Ошибка');
+            } catch(err) { alert('Ошибка'); }
+        }
+        
+        async function deleteProject() {
+            if (confirm('Удалить проект?')) {
+                try {
+                    const response = await apiRequest(`/api/projects/${projectId}`, { method: 'DELETE' });
+                    if (response.ok) window.location.href = '/projects';
+                    else alert('Ошибка');
+                } catch(err) { alert('Ошибка'); }
+            }
+        }
+        
+        function openAddMemberModal() { document.getElementById('addMemberModal').classList.add('active'); }
+        function closeAddMemberModal() { document.getElementById('addMemberModal').classList.remove('active'); document.getElementById('memberEmail').value = ''; }
+        
+        async function addMember() {
+            const email = document.getElementById('memberEmail').value;
+            if (!email) { alert('Введите email'); return; }
+            try {
+                const userRes = await apiRequest(`/api/users/by-email?email=${encodeURIComponent(email)}`);
+                if (!userRes.ok) { alert('Пользователь не найден'); return; }
+                const user = await userRes.json();
+                const response = await apiRequest(`/api/projects/${projectId}/members`, {
+                    method: 'POST',
+                    body: JSON.stringify({ user_id: user.id })
+                });
+                if (response.ok) { closeAddMemberModal(); await loadTabContent('members'); alert('Участник добавлен'); }
+                else alert('Ошибка');
+            } catch(err) { alert('Ошибка'); }
+        }
+        
+        async function removeMember(userId) {
+            if (confirm('Удалить участника?')) {
+                try {
+                    const response = await apiRequest(`/api/projects/${projectId}/members/${userId}`, { method: 'DELETE' });
+                    if (response.ok) await loadTabContent('members');
+                    else alert('Ошибка');
+                } catch(err) { alert('Ошибка'); }
+            }
+        }
+        
+        function openTimelineModal() { document.getElementById('timelineModal').classList.add('active'); }
+        function closeTimelineModal() { document.getElementById('timelineModal').classList.remove('active'); document.getElementById('timelineType').value = 'contract_date'; document.getElementById('timelineDate').value = ''; }
+        
+        async function saveTimelineDate() {
+            const type = document.getElementById('timelineType').value;
+            const date = document.getElementById('timelineDate').value;
+            if (!date) { alert('Выберите дату'); return; }
+            try {
+                const response = await apiRequest(`/api/projects/${projectId}/timeline`, { method: 'PATCH', body: JSON.stringify({ [type]: date + 'T00:00:00Z' }) });
+                if (response.ok) { closeTimelineModal(); await loadTabContent('timeline'); alert('Дата добавлена'); }
+                else alert('Ошибка');
+            } catch(err) { alert('Ошибка'); }
+        }
+        
+        function openTaskModal() { document.getElementById('createTaskModal').classList.add('active'); }
+        function closeTaskModal() { document.getElementById('createTaskModal').classList.remove('active'); document.getElementById('taskTitle').value = ''; document.getElementById('taskDescription').value = ''; document.getElementById('taskDeadline').value = ''; document.getElementById('taskAssigneeEmail').value = ''; }
+        
+        async function createTask() {
+            const assigneeEmail = document.getElementById('taskAssigneeEmail').value;
+            let assigneeId = null;
+            if (assigneeEmail) {
+                try {
+                    const userRes = await apiRequest(`/api/users/by-email?email=${encodeURIComponent(assigneeEmail)}`);
+                    if (!userRes.ok) { alert('Исполнитель не найден'); return; }
+                    const user = await userRes.json();
+                    assigneeId = user.id;
+                } catch(err) { alert('Ошибка поиска пользователя'); return; }
+            }
+            const taskData = {
+                title: document.getElementById('taskTitle').value,
+                description: document.getElementById('taskDescription').value,
+                deadline: document.getElementById('taskDeadline').value ? document.getElementById('taskDeadline').value + 'T00:00:00Z' : null,
+                priority: parseInt(document.getElementById('taskPriority').value),
+                assigned_to: assigneeId
+            };
+            if (!taskData.title) { alert('Введите название задачи'); return; }
+            try {
+                const response = await apiRequest(`/api/projects/${projectId}/tasks`, { method: 'POST', body: JSON.stringify(taskData) });
+                if (response.ok) { closeTaskModal(); await loadTabContent('tasks'); alert('Задача создана'); }
+                else alert('Ошибка');
+            } catch(err) { alert('Ошибка'); }
+        }
+        
+        document.querySelectorAll('#statusModal .status-option').forEach(btn => {
+            btn.addEventListener('click', () => { changeProjectStatus(parseInt(btn.dataset.status)); });
+        });
+        
+        async function init() {
+            try {
+                const response = await apiRequest('/api/users/me');
+                if (response.ok) {
+                    const user = await response.json();
+                    document.getElementById('userName').textContent = user.full_name || 'Пользователь';
+                    const roles = { 'ROLE_DIRECTOR':'Директор','ROLE_GIP':'ГИП','ROLE_DEPARTMENT_MANAGER':'Руководитель отдела','ROLE_PROJECT_MANAGER':'ПМ','ROLE_WORKER':'Инженер' };
+                    document.getElementById('userRole').textContent = roles[user.role] || '';
+                    currentUserRole = user.role;
+                    currentUserId = user.id;
+                }
+            } catch(err) {}
+            await loadProject();
+        }
+        init();
+    </script>
 </body>
 </html>

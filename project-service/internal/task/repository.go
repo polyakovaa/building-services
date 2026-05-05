@@ -93,6 +93,7 @@ func (r *Repository) FindByID(ctx context.Context, id string) (*projectv1.Task, 
 		return nil, fmt.Errorf("failed to find task: %w", err)
 	}
 	t.Status = projectv1.TaskStatus(status)
+	t.Priority = projectv1.TaskPriority(priority)
 
 	if deadline.Valid {
 		t.Deadline = timestamppb.New(deadline.Time)

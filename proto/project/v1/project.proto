@@ -16,6 +16,8 @@ service ProjectService {
     rpc UpdateProject(UpdateProjectRequest) returns (Project);
     rpc DeleteProject(DeleteProjectRequest) returns (google.protobuf.Empty);
     rpc ChangeProjectStatus(ChangeProjectStatusRequest) returns (Project);
+    rpc GetUser(GetUserRequest) returns (User);
+    rpc GetUserByEmail(GetUserByEmailRequest) returns (User);
 }
 
 
@@ -83,7 +85,20 @@ message DeleteProjectRequest {
     string id = 1;
 }
 
+message GetUserRequest {
+    string id = 1;
+}
 
+message User {
+    string id = 1;
+    string full_name = 2;
+    string email = 3;
+    string role = 4;
+}
+
+message GetUserByEmailRequest {
+    string email = 1;
+}
 
 
 

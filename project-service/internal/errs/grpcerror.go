@@ -9,13 +9,11 @@ import (
 )
 
 var (
-	ErrInvalidInput  = errors.New("invalid input")
-	ErrNoPermission  = errors.New("permission denied")
-	ErrNotFound      = errors.New("not found")
-	ErrAlreadyExists = errors.New("already exists")
-)
-
-var (
+	ErrInvalidInput    = errors.New("invalid input")
+	ErrNoPermission    = errors.New("permission denied")
+	ErrNotFound        = errors.New("not found")
+	ErrAlreadyExists   = errors.New("already exists")
+	ErrUserNotFound    = errors.New("user not found")
 	ErrProjectNotFound = errors.New("project not found")
 	ErrMemberNotFound  = errors.New("member not found")
 	ErrTaskNotFound    = errors.New("task not found")

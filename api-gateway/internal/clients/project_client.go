@@ -13,6 +13,8 @@ type ProjectClient struct {
 	Task          projectv1.TaskServiceClient
 	Timeline      projectv1.ProjectTimelineServiceClient
 	Attachment    projectv1.AttachmentServiceClient
+	User          projectv1.ProjectServiceClient
+	Department    projectv1.DepartmentServiceClient
 	Conn          *grpc.ClientConn
 }
 
@@ -28,6 +30,8 @@ func NewProjectClient(address string) (*ProjectClient, *grpc.ClientConn, error) 
 		Task:          projectv1.NewTaskServiceClient(conn),
 		Timeline:      projectv1.NewProjectTimelineServiceClient(conn),
 		Attachment:    projectv1.NewAttachmentServiceClient(conn),
+		User:          projectv1.NewProjectServiceClient(conn),
+		Department:    projectv1.NewDepartmentServiceClient(conn),
 		Conn:          conn,
 	}, conn, nil
 }

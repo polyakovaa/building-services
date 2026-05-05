@@ -52,6 +52,7 @@ type ProjectRepo interface {
 }
 type UserRepo interface {
 	FindByID(ctx context.Context, id string) (*user.User, error)
+	FindByEmail(ctx context.Context, id string) (*user.User, error)
 }
 
 type MemberRepo interface {
@@ -110,10 +111,9 @@ func (s *Service) CreateProject(ctx context.Context, req *projectv1.CreateProjec
 	}
 
 	err = s.memberRepo.Add(ctx, &projectv1.ProjectMember{
-		ProjectId:    project.Id,
-		UserId:       userID,
-		DepartmentId: "",
-		JoinedAt:     timestamppb.Now(),
+		ProjectId: project.Id,
+		UserId:    userID,
+		JoinedAt:  timestamppb.Now(),
 	})
 	if err != nil {
 		log.Printf("failed to add creator as member: %v", err)
@@ -278,4 +278,46 @@ func (s *Service) ListProjects(ctx context.Context, req *projectv1.ListProjectsR
 		TotalCount: int32(len(projects)),
 	}, nil
 
+}
+
+func (s *Service) GetUser(ctx context.Context, req *projectv1.GetUserRequest) (*projectv1.User, error) {
+	if req.Id == "" {
+		return nil, fmt.Errorf("%w: user id required", errs.ErrInvalidInput)
+	}
+
+	user, err := s.userRepo.FindByID(ctx, req.Id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errs.ErrUserNotFound
+		}
+		return nil, fmt.Errorf("failed to find user: %w", err)
+	}
+
+	return &projectv1.User{
+		Id:       user.ID,
+		FullName: user.FullName,
+		Email:    user.Email,
+		Role:     user.Role,
+	}, nil
+}
+
+func (s *Service) GetUserByEmail(ctx context.Context, req *projectv1.GetUserByEmailRequest) (*projectv1.User, error) {
+	if req.Email == "" {
+		return nil, fmt.Errorf("%w: email required", errs.ErrInvalidInput)
+	}
+
+	user, err := s.userRepo.FindByEmail(ctx, req.Email)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errs.ErrUserNotFound
+		}
+		return nil, fmt.Errorf("failed to find user: %w", err)
+	}
+
+	return &projectv1.User{
+		Id:       user.ID,
+		FullName: user.FullName,
+		Email:    user.Email,
+		Role:     user.Role,
+	}, nil
 }

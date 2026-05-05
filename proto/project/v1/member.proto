@@ -27,7 +27,6 @@ message ProjectMember {
 message AddMemberRequest {
     string project_id = 1;
     string user_id = 2;
-    string department_id = 4;
 }
 
 message UpdateMemberRequest {

@@ -31,8 +31,6 @@ func (h *Handler) CreateProject(ctx context.Context, req *projectv1.CreateProjec
 		return nil, status.Error(codes.InvalidArgument, "request is nil")
 	}
 
-	log.Printf("Received request: %+v", req)
-
 	project, err := h.service.CreateProject(ctx, req)
 
 	if err != nil {
@@ -53,8 +51,6 @@ func (h *Handler) GetProject(ctx context.Context, req *projectv1.GetProjectReque
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request is nil")
 	}
-
-	log.Printf("Received request: %+v", req)
 
 	project, err := h.service.GetProject(ctx, req)
 	if err != nil {
@@ -126,4 +122,31 @@ func (h *Handler) ChangeProjectStatus(ctx context.Context, req *projectv1.Change
 
 	log.Printf("[SUCCESS] ChangeProjectStatus: duration=%v", time.Since(start))
 	return resp, nil
+}
+func (h *Handler) GetUser(ctx context.Context, req *projectv1.GetUserRequest) (*projectv1.User, error) {
+	start := time.Now()
+	log.Printf("[REQUEST] GetUser: id=%s", req.Id)
+
+	user, err := h.service.GetUser(ctx, req)
+	if err != nil {
+		log.Printf("[ERROR] GetUser failed: %v", err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	log.Printf("[SUCCESS] GetUser: id=%s, duration=%v", user.Id, time.Since(start))
+	return user, nil
+}
+
+func (h *Handler) GetUserByEmail(ctx context.Context, req *projectv1.GetUserByEmailRequest) (*projectv1.User, error) {
+	start := time.Now()
+	log.Printf("[REQUEST] GetUserByEmail: email=%s", req.Email)
+
+	user, err := h.service.GetUserByEmail(ctx, req)
+	if err != nil {
+		log.Printf("[ERROR] GetUserByEmail failed: %v", err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	log.Printf("[SUCCESS] GetUserByEmail: id=%s, duration=%v", user.Id, time.Since(start))
+	return user, nil
 }

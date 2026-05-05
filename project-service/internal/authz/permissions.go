@@ -11,19 +11,26 @@ type PermissionChecker struct {
 	memberRepo     MemberRepo
 	taskRepo       TaskRepo
 	attachmentRepo AttachmentRepo
+	departmentRepo DepartmentRepo
 }
 
-func NewPermissionChecker(userRepo UserRepo, memberRepo MemberRepo, taskRepo TaskRepo, attachmentRepo AttachmentRepo) *PermissionChecker {
+func NewPermissionChecker(userRepo UserRepo, memberRepo MemberRepo,
+	taskRepo TaskRepo, attachmentRepo AttachmentRepo,
+	departmentRepo DepartmentRepo) *PermissionChecker {
 	return &PermissionChecker{
 		userRepo:       userRepo,
 		memberRepo:     memberRepo,
 		taskRepo:       taskRepo,
 		attachmentRepo: attachmentRepo,
+		departmentRepo: departmentRepo,
 	}
 }
 
 type UserRepo interface {
 	FindByID(ctx context.Context, id string) (*user.User, error)
+}
+type DepartmentRepo interface {
+	FindByID(ctx context.Context, id string) (*projectv1.Department, error)
 }
 
 type TaskRepo interface {
@@ -46,6 +53,8 @@ type AttachmentRepo interface {
 const (
 	ResourceProject    = "project"
 	ResourceTask       = "task"
+	ResourceDepartment = "department"
+	ResourceUser       = "user"
 	ResourceAttachment = "attachment"
 )
 
@@ -58,6 +67,7 @@ const (
 	ActionAssign       = "assign"
 	ActionUpload       = "upload"
 	ActionDownload     = "download"
+	ActionAssignToDept = "assign_to_dept"
 )
 
 const (
@@ -213,6 +223,68 @@ func (c *PermissionChecker) checkAttachment(ctx context.Context, user *user.User
 			return true, nil
 		}
 		return c.checkTask(ctx, user, taskID, ActionEdit)
+
+	default:
+		return false, nil
+	}
+}
+
+func (c *PermissionChecker) checkDepartment(ctx context.Context, user *user.User, departmentID string, action string) (bool, error) {
+	switch action {
+	case ActionCreate:
+		// Создавать отдел могут ADMIN и DIRECTOR
+		return user.Role == RoleAdmin || user.Role == RoleDirector, nil
+
+	case ActionView:
+		// ADMIN и DIRECTOR видят все отделы
+		if user.Role == RoleAdmin || user.Role == RoleDirector {
+			return true, nil
+		}
+		// DEPARTMENT_MANAGER видит только свой отдел
+		if user.Role == RoleDepartmentManager {
+			dept, err := c.departmentRepo.FindByID(ctx, departmentID)
+			if err != nil {
+				return false, err
+			}
+			return dept.HeadUserId == user.ID, nil
+		}
+		// PROJECT_MANAGER видит все отделы
+		if user.Role == RoleProjectManager {
+			return true, nil
+		}
+		return false, nil
+
+	case ActionEdit:
+		// Редактировать отдел могут ADMIN, DIRECTOR, а также глава отдела
+		if user.Role == RoleAdmin || user.Role == RoleDirector {
+			return true, nil
+		}
+		if user.Role == RoleDepartmentManager {
+			dept, err := c.departmentRepo.FindByID(ctx, departmentID)
+			if err != nil {
+				return false, err
+			}
+			return dept.HeadUserId == user.ID, nil
+		}
+		return false, nil
+
+	case ActionDelete:
+		// Удалять отдел может только ADMIN
+		return user.Role == RoleAdmin, nil
+
+	case ActionAssignToDept:
+		// Назначать в отдел могут ADMIN, DIRECTOR, PROJECT_MANAGER, а также глава отдела (в свой)
+		if user.Role == RoleAdmin || user.Role == RoleDirector || user.Role == RoleProjectManager {
+			return true, nil
+		}
+		if user.Role == RoleDepartmentManager {
+			dept, err := c.departmentRepo.FindByID(ctx, departmentID)
+			if err != nil {
+				return false, err
+			}
+			return dept.HeadUserId == user.ID, nil
+		}
+		return false, nil
 
 	default:
 		return false, nil

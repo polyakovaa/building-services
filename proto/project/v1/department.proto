@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package project.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+import "project/v1/project.proto";
+
+option go_package = "gen/project/v1;projectv1";
+
+service DepartmentService {
+    rpc CreateDepartment(CreateDepartmentRequest) returns (Department);
+    rpc GetDepartment(GetDepartmentRequest) returns (Department);
+    rpc ListDepartments(ListDepartmentsRequest) returns (ListDepartmentsResponse);
+    rpc UpdateDepartment(UpdateDepartmentRequest) returns (Department);
+    rpc DeleteDepartment(DeleteDepartmentRequest) returns (google.protobuf.Empty);
+    
+    rpc AssignUserToDepartment(AssignUserToDepartmentRequest) returns (google.protobuf.Empty);
+    rpc RemoveUserFromDepartment(RemoveUserFromDepartmentRequest) returns (google.protobuf.Empty);
+    rpc GetDepartmentUsers(GetDepartmentUsersRequest) returns (GetDepartmentUsersResponse);
+}
+
+message Department {
+    string id = 1;
+    string name = 2;
+    string head_user_id = 3;
+    google.protobuf.Timestamp created_at = 4;
+}
+
+message CreateDepartmentRequest {
+    string name = 1;
+    string head_user_id = 2;
+}
+
+message GetDepartmentRequest {
+    string id = 1;
+}
+
+message ListDepartmentsRequest {
+    int32 page_size = 1;
+    string page_token = 2;
+}
+
+message ListDepartmentsResponse {
+    repeated Department departments = 1;
+    int32 total_count = 2;
+}
+
+message UpdateDepartmentRequest {
+    string id = 1;
+    string name = 2;
+    string head_user_id = 3;
+}
+
+message DeleteDepartmentRequest {
+    string id = 1;
+}
+
+message AssignUserToDepartmentRequest {
+    string user_id = 1;
+    string department_id = 2;
+}
+
+message RemoveUserFromDepartmentRequest {
+    string user_id = 1;
+    string department_id = 2;
+}
+
+message GetDepartmentUsersRequest {
+    string department_id = 1;
+}
+
+message GetDepartmentUsersResponse {
+    repeated User users = 1;
+}
+

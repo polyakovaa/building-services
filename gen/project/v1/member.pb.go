@@ -95,7 +95,6 @@ type AddMemberRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ProjectId     string                 `protobuf:"bytes,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
 	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	DepartmentId  string                 `protobuf:"bytes,4,opt,name=department_id,json=departmentId,proto3" json:"department_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -140,13 +139,6 @@ func (x *AddMemberRequest) GetProjectId() string {
 func (x *AddMemberRequest) GetUserId() string {
 	if x != nil {
 		return x.UserId
-	}
-	return ""
-}
-
-func (x *AddMemberRequest) GetDepartmentId() string {
-	if x != nil {
-		return x.DepartmentId
 	}
 	return ""
 }
@@ -458,12 +450,11 @@ const file_project_v1_member_proto_rawDesc = "" +
 	"project_id\x18\x01 \x01(\tR\tprojectId\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12#\n" +
 	"\rdepartment_id\x18\x04 \x01(\tR\fdepartmentId\x127\n" +
-	"\tjoined_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\bjoinedAt\"o\n" +
+	"\tjoined_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\bjoinedAt\"J\n" +
 	"\x10AddMemberRequest\x12\x1d\n" +
 	"\n" +
 	"project_id\x18\x01 \x01(\tR\tprojectId\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\tR\x06userId\x12#\n" +
-	"\rdepartment_id\x18\x04 \x01(\tR\fdepartmentId\"r\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\"r\n" +
 	"\x13UpdateMemberRequest\x12\x1d\n" +
 	"\n" +
 	"project_id\x18\x01 \x01(\tR\tprojectId\x12\x17\n" +

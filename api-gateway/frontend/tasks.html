@@ -6,141 +6,12 @@
     <title>Мои задачи | ГенСей</title>
     <link rel="stylesheet" href="/static/style.css">
     <script src="/static/app.js"></script>
-    <style>
-        .tasks-container {
-            padding: 24px;
-            min-height: 500px;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            color: #4a6cf7;
-            text-decoration: none;
-            font-size: 14px;
-            margin-bottom: 20px;
-            cursor: pointer;
-        }
-        
-        .back-link:hover {
-            text-decoration: underline;
-        }
-        
-        .filter-tabs {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 24px;
-            flex-wrap: wrap;
-            flex-shrink: 0;
-        }
-        
-        .filter-tab {
-            padding: 8px 16px;
-            background: #f1f5f9;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.2s;
-        }
-        
-        .filter-tab.active {
-            background: #4a6cf7;
-            color: white;
-        }
-        
-        .tasks-table {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-            min-height: 450px;
-        }
-
-        .table-wrapper {
-            overflow-x: auto;
-        }
-
-        .tasks-table table {
-            width: 100%;
-            border-collapse: collapse;
-            min-width: 600px;
-        }
-
-        .tasks-table th,
-        .tasks-table td {
-            padding: 12px 16px;
-            text-align: left;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .tasks-table th {
-            background: #f8fafc;
-            font-weight: 600;
-            color: #475569;
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        .tasks-table th:nth-child(1) { width: 40%; }
-        .tasks-table th:nth-child(2) { width: 20%; }
-        .tasks-table th:nth-child(3) { width: 20%; }
-        .tasks-table th:nth-child(4) { width: 20%; }
-        .status-todo { background: #fef3c7; color: #d97706; }
-        .status-progress { background: #dbeafe; color: #2563eb; }
-        .status-completed { background: #dcfce7; color: #16a34a; }
-        .status-blocked { background: #fee2e2; color: #dc2626; }
-        
-        .project-link {
-            color: #4a6cf7;
-            text-decoration: none;
-            cursor: pointer;
-        }
-        
-        .project-link:hover {
-            text-decoration: underline;
-        }
-        
-        .task-title {
-            font-weight: 500;
-            margin-bottom: 4px;
-            color: #2c3e50;
-        }
-        
-        .task-description {
-            font-size: 13px;
-            color: #64748b;
-        }
-        
-        .deadline-urgent {
-            color: #dc2626;
-            font-weight: 500;
-        }
-        
-        .empty-state {
-            text-align: center;
-            padding: 48px;
-            color: #64748b;
-        }
-        
-        .loading {
-            text-align: center;
-            padding: 48px;
-            color: #64748b;
-        }
-    </style>
+    <link rel="stylesheet" href="/static/tasks.css">
 </head>
 <body class="dashboard-body">
     <div class="dashboard-container">
         <div class="header">
-            <a class="back-link" onclick="window.location.href='/dashboard'">← На главную</a>
+            <a class="back-link" onclick="window.location.href='/dashboard'">←  На главную</a>
             <h1>Мои задачи</h1>
             <div class="user-info">
                 <span class="user-name" id="userName">Загрузка...</span>
@@ -180,9 +51,11 @@
             
             return `
                 <tr>
-                    <td>
-                        <div class="task-title">${escapeHtml(t.title) || 'Без названия'}</div>
-                        ${t.description ? `<div class="task-description">${escapeHtml(t.description.substring(0, 100))}${t.description.length > 100 ? '...' : ''}</div>` : ''}
+                   <td>
+                        <a href="/task/${t.id}" style="color: #667eea; text-decoration: none; font-weight: 500;">
+                            ${escapeHtml(t.title) || 'Без названия'}
+                        </a>
+                        ${t.description ? `<div class="task-description">${escapeHtml(t.description.substring(0, 80))}${t.description.length > 80 ? '...' : ''}</div>` : ''}
                     </td>
                     <td><a href="#" onclick="goToProject('${t.project_id}'); return false;" class="project-link">К проекту →</a></td>
                     <td><span class="status-badge ${status.class}">${status.text}</span></td>
@@ -226,9 +99,6 @@
             }
         }
         
-        function goToProject(projectId) {
-            window.location.href = `/project/${projectId}`;
-        }
         
         document.querySelectorAll('.filter-tab').forEach(tab => {
             tab.addEventListener('click', () => {

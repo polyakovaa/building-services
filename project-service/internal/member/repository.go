@@ -18,12 +18,24 @@ func NewRepository(db *sql.DB) *Repository {
 }
 
 func (r *Repository) IsProjectMember(ctx context.Context, projectID, userID string) (*projectv1.ProjectMember, error) {
-	query := `SELECT FROM project_members 
-        WHERE project_id = $1 AND user_id = $2`
-	var member projectv1.ProjectMember
-	err := r.db.QueryRowContext(ctx, query, projectID, userID).Scan(&member)
-	return &member, err
+	query := `SELECT project_id, user_id, department_id, joined_at
+              FROM project_members WHERE project_id = $1 AND user_id = $2`
 
+	var member projectv1.ProjectMember
+	var joinedAt time.Time
+
+	err := r.db.QueryRowContext(ctx, query, projectID, userID).Scan(
+		&member.ProjectId,
+		&member.UserId,
+		&member.DepartmentId,
+		&joinedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	member.JoinedAt = timestamppb.New(joinedAt)
+	return &member, nil
 }
 
 func (r *Repository) CanAssignTask(ctx context.Context, projectID, userID string) (bool, error) {
@@ -41,25 +53,29 @@ func (r *Repository) CanAssignTask(ctx context.Context, projectID, userID string
 }
 
 func (r *Repository) Add(ctx context.Context, member *projectv1.ProjectMember) error {
-	query := `INSERT INTO project_members(project_id, user_id, department_id, joined_at) VALUES($1, $2, $3,$4)`
+	if member.DepartmentId == "" {
+		query := `INSERT INTO project_members (project_id, user_id, joined_at) VALUES ($1, $2, $3)`
+		var joinedAt *time.Time
+		if member.JoinedAt != nil {
+			t := member.JoinedAt.AsTime()
+			joinedAt = &t
+		}
+		_, err := r.db.ExecContext(ctx, query, member.ProjectId, member.UserId, joinedAt)
+		return err
+	}
+
+	query := `INSERT INTO project_members (project_id, user_id, department_id, joined_at) VALUES ($1, $2, $3, $4)`
 	var joinedAt *time.Time
 	if member.JoinedAt != nil {
 		t := member.JoinedAt.AsTime()
 		joinedAt = &t
 	}
-
-	var deptID interface{} = nil
-	if member.DepartmentId != "" {
-		deptID = member.DepartmentId
-	}
-
 	_, err := r.db.ExecContext(ctx, query,
 		member.ProjectId,
 		member.UserId,
-		deptID,
+		member.DepartmentId,
 		joinedAt,
 	)
-
 	return err
 }
 
@@ -88,7 +104,7 @@ func (r *Repository) IsManagerOfProject(ctx context.Context, projectID, userID s
 
 func (r *Repository) GetProjectMembers(ctx context.Context, projectID string) ([]*projectv1.ProjectMember, error) {
 	query := `SELECT project_id, user_id, department_id, joined_at
-	 FROM project_members WHERE project_id= $1`
+              FROM project_members WHERE project_id = $1`
 
 	var members []*projectv1.ProjectMember
 
@@ -102,15 +118,21 @@ func (r *Repository) GetProjectMembers(ctx context.Context, projectID string) ([
 	for rows.Next() {
 		var member projectv1.ProjectMember
 		var joinedAt sql.NullTime
+		var deptID sql.NullString
 
 		err := rows.Scan(
 			&member.ProjectId,
 			&member.UserId,
-			&member.DepartmentId,
+			&deptID,
 			&joinedAt,
 		)
 		if err != nil {
 			return nil, err
+		}
+		if deptID.Valid {
+			member.DepartmentId = deptID.String
+		} else {
+			member.DepartmentId = ""
 		}
 
 		if joinedAt.Valid {

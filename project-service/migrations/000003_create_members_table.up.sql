@@ -8,5 +8,4 @@ CREATE TABLE IF NOT EXISTS project_members (
 );
 
 CREATE INDEX idx_members_user ON project_members(user_id);
-CREATE INDEX idx_members_role ON project_members(role);
 CREATE INDEX idx_members_department ON project_members(department_id);

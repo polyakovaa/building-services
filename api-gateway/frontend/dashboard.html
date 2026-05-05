@@ -24,7 +24,7 @@
                     <li class="sidebar-item active" data-page="dashboard">
                         <span>Главная</span>
                     </li>
-                    <li class="sidebar-item" data-page="projects">
+                    <li class="sidebar-item" data-page="projects" onclick="window.location.href='/projects'">
                         <span>Проекты</span>
                     </li>
                     <li class="sidebar-item" data-page="tasks" onclick="window.location.href='/tasks'">
@@ -64,10 +64,7 @@
                         <h3>Задачи на сегодня</h3>
                         <div><span class="stat-number" id="todayTasks">0</span><span class="stat-unit"></span></div>
                     </div>
-                    <div class="stat-card">
-                        <h3>Новые уведомления</h3>
-                        <div><span class="stat-number" id="newNotifications">0</span><span class="stat-unit"></span></div>
-                    </div>
+            
                 </div>
 
                 <div class="deadlines-list">
@@ -142,7 +139,14 @@
                  
                     const activeTasks = tasks.filter(t => t.status !== 3).length;
                     const inProgress = tasks.filter(t => t.status === 2).length;
-                    const overdue = tasks.filter(t => t.status === 4).length;
+                    const overdue = tasks.filter(t => {
+                        if (!t.deadline) return false;
+                        if (t.status === 3) return false;
+                        const deadlineDate = new Date(t.deadline.seconds * 1000);
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        return deadlineDate < today;
+                    }).length;
                     const today = tasks.filter(t => {
                         if (!t.deadline) return false;
                         if (t.status === 3) return false;
