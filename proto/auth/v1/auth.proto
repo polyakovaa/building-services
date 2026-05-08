@@ -14,6 +14,7 @@ service AuthService {
     rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
     rpc UpdateUserRole(UpdateUserRoleRequest) returns (UpdateUserRoleResponse);
     rpc GetInfo(GetInfoRequest) returns (UserInfo);
+    rpc UpdateProfile(UpdateProfileRequest) returns (UserInfo);
 }
 
 enum Role {
@@ -80,3 +81,10 @@ message ListUsersResponse {
 }
 
 message GetInfoRequest {}
+
+message UpdateProfileRequest {
+    // Empty string means "do not change".
+    string full_name = 1;
+    // Empty string means "do not change".
+    string email = 2;
+}

@@ -5,6 +5,7 @@ import (
 	authv1 "building-services/gen/auth/v1"
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -157,6 +158,33 @@ func (h *AuthHandler) GetInfo(c *gin.Context) {
 		return
 	}
 	c.JSON(200, resp)
+}
+
+func (h *AuthHandler) UpdateMe(c *gin.Context) {
+	ctx, err := util.GetGRPCContext(c)
+	if err != nil {
+		return
+	}
+
+	var req struct {
+		FullName string `json:"full_name"`
+		Email    string `json:"email"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+		return
+	}
+
+	resp, err := h.authClient.UpdateProfile(ctx, &authv1.UpdateProfileRequest{
+		FullName: req.FullName,
+		Email:    req.Email,
+	})
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
 }
 
 func convertRole(roleStr string) (authv1.Role, error) {

@@ -1,13 +1,229 @@
 <!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><title>Проекты</title><link rel="stylesheet" href="/static/style.css"></head>
-<body>
-    <div class="header"><h1>Проекты</h1><button onclick="logout()">Выйти</button></div>
-    <div class="sidebar"><a href="/dashboard">Главная</a><a href="/projects">Проекты</a><a href="/tasks">Задачи</a></div>
-    <div class="main-content"><h2>Список проектов</h2><div id="projectsList">Загрузка...</div></div>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Профиль | ГенСей</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/profile.css">
     <script src="/static/app.js"></script>
-    <script>fetch('/api/projects',{headers:{'Authorization':`Bearer ${localStorage.getItem('access_token')}`}}).then(r=>r.json()).then(data=>{
-        document.getElementById('projectsList').innerHTML = data.map(p=>`<div><b>${p.name}</b> - ${p.customer}</div>`).join('')
-    })</script>
+</head>
+<body class="dashboard-body">
+    <div class="dashboard-container">
+        <div class="header">
+            <a class="back-link" onclick="window.location.href='/dashboard'">← На главную</a>
+            <h1>Профиль</h1>
+            <div class="user-info">
+                <span class="user-name" id="userName">Загрузка...</span>
+                <span class="user-role" id="userRole"></span>
+                <button class="logout-btn" onclick="logout()">Выйти</button>
+            </div>
+        </div>
+
+        <div class="profile-page-wrapper">
+            <div class="profile-content-container">
+                <div class="profile-fixed-header">
+                    <h2>Личная информация</h2>
+                </div>
+                <div class="profile-scrollable-body">
+                    <div class="profile-form">
+                        <div class="avatar-section">
+                            <div class="avatar-circle" id="avatarCircle">?</div>
+                            <div class="avatar-info">
+                                <div class="avatar-name" id="profileFullName">Загрузка...</div>
+                                <div class="avatar-role" id="profileRole">—</div>
+                            </div>
+                            <button class="avatar-edit-btn" onclick="alert('Загрузка фото будет доступна позже')">
+                                 Изменить фото
+                            </button>
+                        </div>
+
+                        <div class="separator"></div>
+                        <div id="viewMode">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Email</label>
+                                    <input type="email" id="viewEmail" disabled value="—">
+                                </div>
+                                <div class="form-group">
+                                    <label>Роль</label>
+                                    <input type="text" id="viewRoleDisplay" disabled value="—">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Полное имя</label>
+                                    <input type="text" id="viewFullName" disabled value="—">
+                                </div>
+                                <div class="form-group">
+                                    <label>ID пользователя</label>
+                                    <input type="text" id="viewUserId" disabled value="—">
+                                </div>
+                            </div>
+                            <div class="action-buttons">
+                                <button class="edit-profile-btn" onclick="enableEditMode()">Редактировать профиль</button>
+                            </div>
+                        </div>
+                        <div id="editMode" style="display: none;">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Email</label>
+                                    <input type="email" id="editEmail" placeholder="email@example.com">
+                                </div>
+                                <div class="form-group">
+                                    <label>Полное имя</label>
+                                    <input type="text" id="editFullName" placeholder="ФИО">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Новый пароль</label>
+                                    <input type="password" id="editPassword" placeholder="Оставьте пустым, чтобы не менять">
+                                </div>
+                                <div class="form-group">
+                                    <label>Подтверждение пароля</label>
+                                    <input type="password" id="editPasswordConfirm" placeholder="Повторите пароль">
+                                </div>
+                            </div>
+                            <div class="action-buttons">
+                                <button class="save-profile-btn" onclick="saveProfile()">Сохранить</button>
+                                <button class="cancel-edit-btn" onclick="disableEditMode()">Отмена</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+
+        function getInitials(name) {
+            if (!name) return '?';
+            const parts = name.trim().split(' ');
+            if (parts.length >= 2) {
+                return (parts[0][0] + parts[1][0]).toUpperCase();
+            }
+            return name.substring(0, 2).toUpperCase();
+        }
+
+        function updateAvatar(name) {
+            const avatarCircle = document.getElementById('avatarCircle');
+            if (avatarCircle) {
+                avatarCircle.textContent = getInitials(name);
+            }
+        }
+        function formatRole(role) {
+            const roles = {
+                'ROLE_DIRECTOR': 'Директор',
+                'ROLE_GIP': 'ГИП',
+                'ROLE_DEPARTMENT_MANAGER': 'Руководитель отдела',
+                'ROLE_PROJECT_MANAGER': 'Проектный менеджер',
+                'ROLE_WORKER': 'Инженер',
+                'ROLE_ADMIN': 'Администратор'
+            };
+            return roles[role] || role || 'Пользователь';
+        }
+
+        async function loadProfile() {
+            try {
+                const response = await apiRequest('/api/users/me');
+                if (response.ok) {
+                    currentUser = await response.json();
+                    
+                    document.getElementById('profileFullName').textContent = currentUser.full_name || 'Пользователь';
+                    document.getElementById('profileRole').textContent = formatRole(currentUser.role);
+                    
+                    document.getElementById('viewEmail').value = currentUser.email || '—';
+                    document.getElementById('viewRoleDisplay').value = formatRole(currentUser.role);
+                    document.getElementById('viewFullName').value = currentUser.full_name || '—';
+                    document.getElementById('viewUserId').value = currentUser.id || '—';
+                    
+                    document.getElementById('editEmail').value = currentUser.email || '';
+                    document.getElementById('editFullName').value = currentUser.full_name || '';
+                    document.getElementById('editPassword').value = '';
+                    document.getElementById('editPasswordConfirm').value = '';
+                    
+                    updateAvatar(currentUser.full_name);
+                } else {
+                    document.getElementById('profileFullName').textContent = 'Ошибка загрузки';
+                }
+            } catch (err) {
+                console.error('Failed to load profile:', err);
+                document.getElementById('profileFullName').textContent = 'Ошибка загрузки';
+            }
+        }
+
+        function enableEditMode() {
+            document.getElementById('viewMode').style.display = 'none';
+            document.getElementById('editMode').style.display = 'block';
+        }
+
+        function disableEditMode() {
+            document.getElementById('viewMode').style.display = 'block';
+            document.getElementById('editMode').style.display = 'none';
+            if (currentUser) {
+                document.getElementById('editEmail').value = currentUser.email || '';
+                document.getElementById('editFullName').value = currentUser.full_name || '';
+                document.getElementById('editPassword').value = '';
+                document.getElementById('editPasswordConfirm').value = '';
+            }
+        }
+
+        async function saveProfile() {
+            const newFullName = document.getElementById('editFullName').value;
+            const newEmail = document.getElementById('editEmail').value;
+            const newPassword = document.getElementById('editPassword').value;
+            const newPasswordConfirm = document.getElementById('editPasswordConfirm').value;
+            
+            if (newPassword !== newPasswordConfirm) {
+                alert('Пароли не совпадают');
+                return;
+            }
+
+            if (newPassword) {
+                alert('Смена пароля пока не поддерживается. Сейчас можно изменить только имя и email.');
+                return;
+            }
+
+            const payload = {
+                full_name: (newFullName || '').trim(),
+                email: (newEmail || '').trim()
+            };
+
+            try {
+                const response = await apiRequest('/api/users/me', {
+                    method: 'PUT',
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    alert('Не удалось сохранить профиль');
+                    return;
+                }
+
+                currentUser = await response.json();
+
+                document.getElementById('profileFullName').textContent = currentUser.full_name || 'Пользователь';
+                document.getElementById('profileRole').textContent = formatRole(currentUser.role);
+
+                document.getElementById('viewEmail').value = currentUser.email || '—';
+                document.getElementById('viewRoleDisplay').value = formatRole(currentUser.role);
+                document.getElementById('viewFullName').value = currentUser.full_name || '—';
+                document.getElementById('viewUserId').value = currentUser.id || '—';
+
+                updateAvatar(currentUser.full_name);
+                loadUserInfo();
+                disableEditMode();
+                alert('Профиль обновлён');
+            } catch (err) {
+                console.error('Failed to save profile:', err);
+                alert(err?.message || 'Не удалось сохранить профиль');
+            }
+        }
+        loadUserInfo();
+        loadProfile();
+    </script>
 </body>
 </html>

@@ -627,6 +627,60 @@ func (*GetInfoRequest) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{9}
 }
 
+type UpdateProfileRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Empty string means "do not change".
+	FullName string `protobuf:"bytes,1,opt,name=full_name,json=fullName,proto3" json:"full_name,omitempty"`
+	// Empty string means "do not change".
+	Email         string `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateProfileRequest) Reset() {
+	*x = UpdateProfileRequest{}
+	mi := &file_auth_v1_auth_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateProfileRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateProfileRequest) ProtoMessage() {}
+
+func (x *UpdateProfileRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateProfileRequest.ProtoReflect.Descriptor instead.
+func (*UpdateProfileRequest) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *UpdateProfileRequest) GetFullName() string {
+	if x != nil {
+		return x.FullName
+	}
+	return ""
+}
+
+func (x *UpdateProfileRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
 var File_auth_v1_auth_proto protoreflect.FileDescriptor
 
 const file_auth_v1_auth_proto_rawDesc = "" +
@@ -667,7 +721,10 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x05users\x18\x01 \x03(\v2\x11.auth.v1.UserInfoR\x05users\x12\x1f\n" +
 	"\vtotal_count\x18\x02 \x01(\x05R\n" +
 	"totalCount\"\x10\n" +
-	"\x0eGetInfoRequest*\x95\x01\n" +
+	"\x0eGetInfoRequest\"I\n" +
+	"\x14UpdateProfileRequest\x12\x1b\n" +
+	"\tfull_name\x18\x01 \x01(\tR\bfullName\x12\x14\n" +
+	"\x05email\x18\x02 \x01(\tR\x05email*\x95\x01\n" +
 	"\x04Role\x12\x14\n" +
 	"\x10ROLE_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rROLE_DIRECTOR\x10\x01\x12\x18\n" +
@@ -676,14 +733,15 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\bROLE_GIP\x10\x04\x12\x0f\n" +
 	"\vROLE_WORKER\x10\x05\x12\x0e\n" +
 	"\n" +
-	"ROLE_ADMIN\x10\x062\x94\x03\n" +
+	"ROLE_ADMIN\x10\x062\xd7\x03\n" +
 	"\vAuthService\x12;\n" +
 	"\bRegister\x12\x18.auth.v1.RegisterRequest\x1a\x15.auth.v1.AuthResponse\x125\n" +
 	"\x05Login\x12\x15.auth.v1.LoginRequest\x1a\x15.auth.v1.AuthResponse\x12C\n" +
 	"\fRefreshToken\x12\x1c.auth.v1.RefreshTokenRequest\x1a\x15.auth.v1.AuthResponse\x12B\n" +
 	"\tListUsers\x12\x19.auth.v1.ListUsersRequest\x1a\x1a.auth.v1.ListUsersResponse\x12Q\n" +
 	"\x0eUpdateUserRole\x12\x1e.auth.v1.UpdateUserRoleRequest\x1a\x1f.auth.v1.UpdateUserRoleResponse\x125\n" +
-	"\aGetInfo\x12\x17.auth.v1.GetInfoRequest\x1a\x11.auth.v1.UserInfoB\x14Z\x12gen/auth/v1;authv1b\x06proto3"
+	"\aGetInfo\x12\x17.auth.v1.GetInfoRequest\x1a\x11.auth.v1.UserInfo\x12A\n" +
+	"\rUpdateProfile\x12\x1d.auth.v1.UpdateProfileRequest\x1a\x11.auth.v1.UserInfoB\x14Z\x12gen/auth/v1;authv1b\x06proto3"
 
 var (
 	file_auth_v1_auth_proto_rawDescOnce sync.Once
@@ -698,7 +756,7 @@ func file_auth_v1_auth_proto_rawDescGZIP() []byte {
 }
 
 var file_auth_v1_auth_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_auth_v1_auth_proto_goTypes = []any{
 	(Role)(0),                      // 0: auth.v1.Role
 	(*RegisterRequest)(nil),        // 1: auth.v1.RegisterRequest
@@ -711,11 +769,12 @@ var file_auth_v1_auth_proto_goTypes = []any{
 	(*ListUsersRequest)(nil),       // 8: auth.v1.ListUsersRequest
 	(*ListUsersResponse)(nil),      // 9: auth.v1.ListUsersResponse
 	(*GetInfoRequest)(nil),         // 10: auth.v1.GetInfoRequest
-	(*timestamppb.Timestamp)(nil),  // 11: google.protobuf.Timestamp
+	(*UpdateProfileRequest)(nil),   // 11: auth.v1.UpdateProfileRequest
+	(*timestamppb.Timestamp)(nil),  // 12: google.protobuf.Timestamp
 }
 var file_auth_v1_auth_proto_depIdxs = []int32{
 	0,  // 0: auth.v1.RegisterRequest.role:type_name -> auth.v1.Role
-	11, // 1: auth.v1.AuthResponse.expires_at:type_name -> google.protobuf.Timestamp
+	12, // 1: auth.v1.AuthResponse.expires_at:type_name -> google.protobuf.Timestamp
 	0,  // 2: auth.v1.AuthResponse.role:type_name -> auth.v1.Role
 	5,  // 3: auth.v1.ListUsersResponse.users:type_name -> auth.v1.UserInfo
 	1,  // 4: auth.v1.AuthService.Register:input_type -> auth.v1.RegisterRequest
@@ -724,14 +783,16 @@ var file_auth_v1_auth_proto_depIdxs = []int32{
 	8,  // 7: auth.v1.AuthService.ListUsers:input_type -> auth.v1.ListUsersRequest
 	6,  // 8: auth.v1.AuthService.UpdateUserRole:input_type -> auth.v1.UpdateUserRoleRequest
 	10, // 9: auth.v1.AuthService.GetInfo:input_type -> auth.v1.GetInfoRequest
-	4,  // 10: auth.v1.AuthService.Register:output_type -> auth.v1.AuthResponse
-	4,  // 11: auth.v1.AuthService.Login:output_type -> auth.v1.AuthResponse
-	4,  // 12: auth.v1.AuthService.RefreshToken:output_type -> auth.v1.AuthResponse
-	9,  // 13: auth.v1.AuthService.ListUsers:output_type -> auth.v1.ListUsersResponse
-	7,  // 14: auth.v1.AuthService.UpdateUserRole:output_type -> auth.v1.UpdateUserRoleResponse
-	5,  // 15: auth.v1.AuthService.GetInfo:output_type -> auth.v1.UserInfo
-	10, // [10:16] is the sub-list for method output_type
-	4,  // [4:10] is the sub-list for method input_type
+	11, // 10: auth.v1.AuthService.UpdateProfile:input_type -> auth.v1.UpdateProfileRequest
+	4,  // 11: auth.v1.AuthService.Register:output_type -> auth.v1.AuthResponse
+	4,  // 12: auth.v1.AuthService.Login:output_type -> auth.v1.AuthResponse
+	4,  // 13: auth.v1.AuthService.RefreshToken:output_type -> auth.v1.AuthResponse
+	9,  // 14: auth.v1.AuthService.ListUsers:output_type -> auth.v1.ListUsersResponse
+	7,  // 15: auth.v1.AuthService.UpdateUserRole:output_type -> auth.v1.UpdateUserRoleResponse
+	5,  // 16: auth.v1.AuthService.GetInfo:output_type -> auth.v1.UserInfo
+	5,  // 17: auth.v1.AuthService.UpdateProfile:output_type -> auth.v1.UserInfo
+	11, // [11:18] is the sub-list for method output_type
+	4,  // [4:11] is the sub-list for method input_type
 	4,  // [4:4] is the sub-list for extension type_name
 	4,  // [4:4] is the sub-list for extension extendee
 	0,  // [0:4] is the sub-list for field type_name
@@ -748,7 +809,7 @@ func file_auth_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_auth_v1_auth_proto_rawDesc), len(file_auth_v1_auth_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   10,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

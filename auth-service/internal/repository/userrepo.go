@@ -120,3 +120,34 @@ func (r *UserRepository) FindByEmail(email string) (*model.User, error) {
 	}
 	return u, nil
 }
+
+func (r *UserRepository) UpdateProfile(ctx context.Context, userID string, fullName string, email string) (*model.User, error) {
+	u := &model.User{}
+	query := `
+		UPDATE users
+		SET
+			full_name = COALESCE(NULLIF($1, ''), full_name),
+			email = COALESCE(NULLIF($2, ''), email)
+		WHERE id = $3
+		RETURNING id, role, full_name, email, password_hash, created_at
+	`
+
+	if err := r.db.QueryRowContext(ctx, query, fullName, email, userID).Scan(
+		&u.ID,
+		&u.Role,
+		&u.FullName,
+		&u.Email,
+		&u.PasswordHash,
+		&u.CreatedAt,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrUserNotFound
+		}
+		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" {
+			return nil, ErrEmailAlreadyExists
+		}
+		return nil, fmt.Errorf("%w: %v", ErrDB, err)
+	}
+
+	return u, nil
+}

@@ -34,24 +34,6 @@
     overflow-y: auto;
 }
 
-.info-grid {
-    display: grid;
-    grid-template-columns: 140px 1fr;
-    gap: 18px 0;
-    margin-bottom: 28px;
-}
-
-.info-label {
-    font-weight: 500;
-    color: #64748b;
-    font-size: 14px;
-}
-
-.info-value {
-    color: #1e293b;
-    font-size: 14px;
-}
-
 .description-section {
     margin-bottom: 28px;
 }
@@ -116,15 +98,6 @@
     font-size: 13px;
 }
 
-.attachment-link:hover {
-    text-decoration: underline;
-}
-
-.deadline-urgent {
-    color: #dc2626;
-    font-weight: 600;
-}
-
 .deadline-overdue {
     color: #dc2626;
     font-weight: 600;
@@ -139,42 +112,6 @@
 .priority-high { color: #dc2626; font-weight: 500; }
 .priority-urgent { color: #b91c1c; font-weight: 700; }
 
-.status-badge {
-    display: inline-block;
-    padding: 5px 14px;
-    border-radius: 20px;
-    font-size: 13px;
-    font-weight: 500;
-}
-
-.status-todo { background: #fef3c7; color: #d97706; }
-.status-progress { background: #dbeafe; color: #2563eb; }
-.status-completed { background: #dcfce7; color: #16a34a; }
-.status-blocked { background: #fee2e2; color: #dc2626; }
-
-.back-link {
-    display: inline-block;
-    margin-top: 8px;
-    color: #4a6cf7;
-    text-decoration: none;
-    font-size: 14px;
-}
-
-.back-link:hover {
-    text-decoration: underline;
-}
-
-.error {
-    text-align: center;
-    padding: 48px;
-    color: #dc2626;
-}
-
-.loading {
-    text-align: center;
-    padding: 48px;
-    color: #64748b;
-}
 .parent-task-card {
     background: #f0f9ff;
     border-left: 4px solid #4a6cf7;
@@ -195,10 +132,6 @@
     font-weight: 500;
 }
 
-.parent-task-link:hover {
-    text-decoration: underline;
-}
-
 .subtask-item {
     display: flex;
     align-items: center;
@@ -206,12 +139,7 @@
     padding: 12px 16px;
     border-bottom: 1px solid #e2e8f0;
 }
-.subtask-item:last-child {
-    border-bottom: none;
-}
-.subtask-status {
-    font-size: 12px;
-}
+
 .subtask-link {
     flex: 1;
     color: #4a6cf7;
@@ -223,7 +151,7 @@
     gap: 10px;
 }
 
-.edit-task-btn, .status-task-btn {
+.edit-task-btn, .status-task-btn, .delete-task-btn {
     padding: 8px 16px;
     border-radius: 6px;
     border: none;
@@ -232,95 +160,6 @@
     font-weight: 500;
     background: #4a6cf7;
     color: white;
-}
-
-.edit-task-btn:hover, .status-task-btn:hover {
-    background: #6785fd;
-}
-
-
-.modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.5);
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-}
-
-.modal.active {
-    display: flex;
-}
-
-.modal-content {
-    background: white;
-    border-radius: 16px;
-    padding: 28px;
-    width: 90%;
-    max-width: 500px;
-    max-height: 85vh;
-    overflow-y: auto;
-}
-
-.modal-content h3 {
-    margin-bottom: 20px;
-    font-size: 20px;
-    color: #2c3e50;
-}
-
-.form-group {
-    margin-bottom: 16px;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 6px;
-    font-size: 13px;
-    font-weight: 500;
-    color: #475569;
-}
-
-.form-group input,
-.form-group textarea {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    font-family: inherit;
-    font-size: 14px;
-}
-
-.modal-buttons {
-    display: flex;
-    gap: 12px;
-    justify-content: flex-end;
-    margin-top: 8px;
-}
-
-.save-btn {
-    background: #4a6cf7;
-    color: white;
-    padding: 8px 20px;
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
-}
-
-.save-btn:hover {
-    background: #6785fd;
-}
-
-.cancel-btn {
-    background: #e2e8f0;
-    color: #475569;
-    padding: 8px 20px;
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
 }
 
 .status-modal {
@@ -333,27 +172,6 @@
     margin-bottom: 20px;
 }
 
-.status-options {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 20px;
-}
-
-.status-option {
-    padding: 10px 16px;
-    background: #4a6cf7;
-    color: white;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 14px;
-    border: none;
-}
-
-.status-option:hover {
-    background: #6785fd;
-}
-
 .attachment-upload {
     margin-top: 16px;
     padding-top: 16px;
@@ -363,7 +181,6 @@
     align-items: center;
     flex-wrap: wrap;
 }
-
 
 .file-input {
     flex: 1;
@@ -386,6 +203,27 @@
     white-space: nowrap;
 }
 
-.upload-btn:hover {
-    background: #6785fd;
+.error {
+    text-align: center;
+    padding: 48px;
+    color: #dc2626;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 18px 0;
+    margin-bottom: 28px;
+    background: white;
+}
+
+.info-label {
+    font-weight: 500;
+    color: #64748b;
+    font-size: 14px;
+}
+
+.info-value {
+    color: #1e293b;
+    font-size: 14px;
 }

@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Мои задачи | ГенСей</title>
     <link rel="stylesheet" href="/static/style.css">
-    <script src="/static/app.js"></script>
     <link rel="stylesheet" href="/static/tasks.css">
+    <script src="/static/app.js"></script>
 </head>
 <body class="dashboard-body">
     <div class="dashboard-container">
         <div class="header">
-            <a class="back-link" onclick="window.location.href='/dashboard'">←  На главную</a>
+            <a class="back-link" onclick="window.location.href='/dashboard'">← На главную</a>
             <h1>Мои задачи</h1>
             <div class="user-info">
                 <span class="user-name" id="userName">Загрузка...</span>
@@ -29,8 +29,10 @@
                 <div class="filter-tab" data-status="blocked">Заблокированные</div>
             </div>
             
-            <div class="tasks-table">
-                <div class="table-wrapper" id="tasksContainer">Загрузка...</div>
+            <div class="content-card">
+                <div class="tasks-table">
+                    <div class="table-wrapper" id="tasksContainer">...</div>
+                </div>
             </div>
         </div>
     </div>
@@ -51,15 +53,21 @@
             
             return `
                 <tr>
-                   <td>
-                        <a href="/task/${t.id}" style="color: #667eea; text-decoration: none; font-weight: 500;">
+                    <td style="padding: 12px 16px;">
+                        <a href="/task/${t.id}" style="color: #4a6cf7; text-decoration: none; font-weight: 500;">
                             ${escapeHtml(t.title) || 'Без названия'}
                         </a>
                         ${t.description ? `<div class="task-description">${escapeHtml(t.description.substring(0, 80))}${t.description.length > 80 ? '...' : ''}</div>` : ''}
                     </td>
-                    <td><a href="#" onclick="goToProject('${t.project_id}'); return false;" class="project-link">К проекту →</a></td>
-                    <td><span class="status-badge ${status.class}">${status.text}</span></td>
-                    <td class="${isDeadlineUrgent ? 'deadline-urgent' : ''}">${deadlineStr}</td>
+                    <td style="padding: 12px 16px;">
+                        <a href="#" onclick="goToProject('${t.project_id}'); return false;" class="project-link">К проекту →</a>
+                    </td>
+                    <td style="padding: 12px 16px;">
+                        <span class="status-badge ${status.class}">${status.text}</span>
+                    </td>
+                    <td style="padding: 12px 16px;" class="${isDeadlineUrgent ? 'deadline-urgent' : ''}">
+                        ${deadlineStr}
+                    </td>
                 </tr>
             `;
         }
@@ -86,7 +94,12 @@
                 container.innerHTML = `
                     <table>
                         <thead>
-                            <tr><th>Задача</th><th>Проект</th><th>Статус</th><th>Дедлайн</th></tr>
+                            <tr>
+                                <th>Задача</th>
+                                <th>Проект</th>
+                                <th>Статус</th>
+                                <th>Дедлайн</th>
+                            </tr>
                         </thead>
                         <tbody>
                             ${tasks.map(renderTaskRow).join('')}
@@ -98,7 +111,6 @@
                 container.innerHTML = '<div class="empty-state">Ошибка загрузки задач</div>';
             }
         }
-        
         
         document.querySelectorAll('.filter-tab').forEach(tab => {
             tab.addEventListener('click', () => {

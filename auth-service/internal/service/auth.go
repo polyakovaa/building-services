@@ -48,6 +48,7 @@ type UserRepo interface {
 	FindByEmail(email string) (*model.User, error)
 	FindAll(ctx context.Context) ([]*model.User, error)
 	UpdateRole(ctx context.Context, userID string, newRole string) error
+	UpdateProfile(ctx context.Context, userID string, fullName string, email string) (*model.User, error)
 }
 
 type TokenRepo interface {
@@ -222,4 +223,25 @@ func (s *AuthService) ListUsers(ctx context.Context, adminID string) ([]*model.U
 		return nil, ErrNoPermission
 	}
 	return s.userRepo.FindAll(ctx)
+}
+
+func (s *AuthService) UpdateProfile(ctx context.Context, userID string, fullName string, email string) (*model.User, error) {
+	if fullName == "" && email == "" {
+		return nil, fmt.Errorf("nothing to update")
+	}
+
+	if email != "" && !isValidEmail(email) {
+		return nil, ErrInvalidEmailFormat
+	}
+
+	u, err := s.userRepo.UpdateProfile(ctx, userID, fullName, email)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.eventPublisher.PublishUserUpdated(ctx, u.ID, u.Email, u.FullName, u.Role); err != nil {
+		log.Printf("Failed to publish user.updated event: %v", err)
+	}
+
+	return u, nil
 }

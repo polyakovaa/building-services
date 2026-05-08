@@ -80,9 +80,9 @@ func (h *AuthHandler) RefreshToken(ctx context.Context, req *authv1.RefreshToken
 }
 
 func (h *AuthHandler) ListUsers(ctx context.Context, req *authv1.ListUsersRequest) (*authv1.ListUsersResponse, error) {
-	userID, ok := ctx.Value("user_id").(string)
-	if !ok {
-		return nil, status.Error(codes.Unauthenticated, "user not authenticated")
+	userID, err := userIDFromIncomingMetadata(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	users, err := h.authService.ListUsers(ctx, userID)
@@ -108,12 +108,12 @@ func (h *AuthHandler) ListUsers(ctx context.Context, req *authv1.ListUsersReques
 }
 
 func (h *AuthHandler) UpdateUserRole(ctx context.Context, req *authv1.UpdateUserRoleRequest) (*authv1.UpdateUserRoleResponse, error) {
-	adminID, ok := ctx.Value("user_id").(string)
-	if !ok {
-		return nil, status.Error(codes.Unauthenticated, "user not authenticated")
+	adminID, err := userIDFromIncomingMetadata(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	err := h.authService.UpdateRole(ctx, adminID, req.UserId, req.NewRole)
+	err = h.authService.UpdateRole(ctx, req.UserId, req.NewRole, adminID)
 	if err != nil {
 		log.Printf("Failed to update user role: %v", err)
 		return &authv1.UpdateUserRoleResponse{
@@ -129,16 +129,10 @@ func (h *AuthHandler) UpdateUserRole(ctx context.Context, req *authv1.UpdateUser
 }
 
 func (h *AuthHandler) GetInfo(ctx context.Context, req *authv1.GetInfoRequest) (*authv1.UserInfo, error) {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.Unauthenticated, "no metadata")
+	userID, err := userIDFromIncomingMetadata(ctx)
+	if err != nil {
+		return nil, err
 	}
-
-	values := md.Get("user_id")
-	if len(values) == 0 {
-		return nil, status.Error(codes.Unauthenticated, "user_id not found")
-	}
-	userID := values[0]
 
 	user, err := h.authService.GetUserByID(userID)
 	if err != nil {
@@ -151,4 +145,37 @@ func (h *AuthHandler) GetInfo(ctx context.Context, req *authv1.GetInfoRequest) (
 		FullName: user.FullName,
 		Role:     user.Role,
 	}, nil
+}
+
+func (h *AuthHandler) UpdateProfile(ctx context.Context, req *authv1.UpdateProfileRequest) (*authv1.UserInfo, error) {
+	userID, err := userIDFromIncomingMetadata(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := h.authService.UpdateProfile(ctx, userID, req.FullName, req.Email)
+	if err != nil {
+		log.Printf("Failed to update profile: %v", err)
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	return &authv1.UserInfo{
+		Id:        user.ID,
+		Email:     user.Email,
+		FullName:  user.FullName,
+		Role:      user.Role,
+		CreatedAt: user.CreatedAt.Format(time.RFC3339),
+	}, nil
+}
+
+func userIDFromIncomingMetadata(ctx context.Context) (string, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", status.Error(codes.Unauthenticated, "no metadata")
+	}
+	values := md.Get("user_id")
+	if len(values) == 0 {
+		return "", status.Error(codes.Unauthenticated, "user_id not found")
+	}
+	return values[0], nil
 }

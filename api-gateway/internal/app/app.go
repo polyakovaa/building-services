@@ -57,6 +57,7 @@ func NewApp(cfg *config.GatewayConfig) (*App, error) {
 		{
 			projectHandler.RegisterRoutes(protected)
 			protected.GET("/users/me", authHandler.GetInfo)
+			protected.PUT("/users/me", authHandler.UpdateMe)
 			protected.GET("/users/:id", projectHandler.GetUserByID)
 			protected.GET("/users/by-email", projectHandler.GetUserByEmail)
 
@@ -102,7 +103,4 @@ func serveFrontend(r *gin.Engine) {
 		c.File("./frontend/task.html")
 	})
 
-	r.GET("/favicon.ico", func(c *gin.Context) {
-		c.File("./frontend/favicon.ico")
-	})
 }

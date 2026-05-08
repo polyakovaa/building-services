@@ -24,8 +24,6 @@
             <div class="loading">Загрузка...</div>
         </div>
     </div>
-
-    <!-- Модалки -->
     <div id="editProjectModal" class="modal">
         <div class="modal-content">
             <h3>Редактировать проект</h3>
@@ -70,8 +68,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Добавление участника — только email, роль не передаем -->
     <div id="addMemberModal" class="modal">
         <div class="modal-content">
             <h3>Добавить участника</h3>
@@ -79,7 +75,6 @@
                 <label>Email участника</label>
                 <input type="email" id="memberEmail" placeholder="email@example.com">
             </div>
-            <!-- Роль убрали — она не передается в бэкенд -->
             <div class="modal-buttons">
                 <button class="cancel-btn" onclick="closeAddMemberModal()">Отмена</button>
                 <button class="save-btn" onclick="addMember()">Добавить</button>
@@ -87,7 +82,6 @@
         </div>
     </div>
 
-    <!-- Создание задачи — email исполнителя -->
     <div id="createTaskModal" class="modal">
         <div class="modal-content">
             <h3>Создать задачу</h3>
