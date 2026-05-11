@@ -245,9 +245,23 @@
                 const canAddMember = currentUserRole !== 'ROLE_WORKER';
                 const canDeleteMember = currentUserRole === 'ROLE_DIRECTOR';
                 
+                let departmentNameByID = {};
+                try {
+                    const deptResp = await apiRequest('/api/departments');
+                    if (deptResp.ok) {
+                        const deptData = await deptResp.json();
+                        const depts = deptData.departments || [];
+                        depts.forEach(d => {
+                            if (d && d.id) departmentNameByID[d.id] = d.name || d.id;
+                        });
+                    }
+                } catch (e) {
+                }
+                
                 const membersWithNames = await Promise.all(members.map(async (m) => {
                     const userName = await getUserName(m.user_id);
-                    return { ...m, user_name: userName };
+                    const deptName = m.department_id ? (departmentNameByID[m.department_id] || m.department_id) : '';
+                    return { ...m, user_name: userName, department_name: deptName };
                 }));
                 
                 container.innerHTML = `
@@ -258,7 +272,10 @@
                     <div class="members-list">
                         ${membersWithNames.map(m => `
                             <div class="member-item">
-                                <div class="member-info"><strong>${escapeHtml(m.user_name)}</strong></div>
+                                <div class="member-info">
+                                    <strong>${escapeHtml(m.user_name)}</strong>
+                                    ${m.department_name ? `<div style="color:#64748b; font-size:12px; margin-top:4px;">Отдел: ${escapeHtml(m.department_name)}</div>` : `<div style="color:#94a3b8; font-size:12px; margin-top:4px;">Отдел: —</div>`}
+                                </div>
                                 <div class="member-meta">
                                     <span>${formatDate(m.joined_at)}</span>
                                     ${canDeleteMember && m.user_id !== currentUserId ? `<button class="delete-member-btn" onclick="removeMember('${m.user_id}')">🗑️</button>` : ''}
@@ -463,6 +480,10 @@
         function closeTaskModal() { document.getElementById('createTaskModal').classList.remove('active'); document.getElementById('taskTitle').value = ''; document.getElementById('taskDescription').value = ''; document.getElementById('taskDeadline').value = ''; document.getElementById('taskAssigneeEmail').value = ''; }
         
         async function createTask() {
+            if (!projectId) {
+        alert('ID проекта не найден. Перезагрузите страницу.');
+        return;
+    }
             const assigneeEmail = document.getElementById('taskAssigneeEmail').value;
             let assigneeId = null;
             if (assigneeEmail) {
@@ -473,13 +494,22 @@
                     assigneeId = user.id;
                 } catch(err) { alert('Ошибка поиска пользователя'); return; }
             }
+            const priorityMap = {
+                1: 'low',
+                2: 'medium',
+                3: 'high',
+                4: 'urgent'
+            };
+            const priorityValue = document.getElementById('taskPriority').value;
+            const priorityStr = priorityMap[parseInt(priorityValue)] || 'medium';
             const taskData = {
                 title: document.getElementById('taskTitle').value,
                 description: document.getElementById('taskDescription').value,
                 deadline: document.getElementById('taskDeadline').value ? document.getElementById('taskDeadline').value + 'T00:00:00Z' : null,
-                priority: parseInt(document.getElementById('taskPriority').value),
+                priority: priorityStr,
                 assigned_to: assigneeId
             };
+            console.log('Sending taskData:', JSON.stringify(taskData));
             if (!taskData.title) { alert('Введите название задачи'); return; }
             try {
                 const response = await apiRequest(`/api/projects/${projectId}/tasks`, { method: 'POST', body: JSON.stringify(taskData) });

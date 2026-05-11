@@ -1,0 +1,118 @@
+syntax = "proto3";
+
+package analytics.v1;
+option go_package = "gen/analytics/v1;analyticsv1";
+
+service AnalyticsService {
+    rpc GetDashboard(GetDashboardRequest) returns (DashboardResponse);
+    rpc GetDepartmentWorkload(GetDepartmentWorkloadRequest) returns (DepartmentWorkloadResponse);
+    rpc GetProjectTimelineControl(GetProjectTimelineRequest) returns (ProjectTimelineResponse);
+    rpc GetTaskTrends(GetTaskTrendsRequest) returns (TaskTrendsResponse);
+    rpc GetEmployeeProductivity(GetEmployeeProductivityRequest) returns (EmployeeProductivityResponse);
+}
+
+
+message GetDashboardRequest {
+    string department_id = 1;
+    string from_date = 2;
+    string to_date = 3; 
+}
+
+message DashboardResponse {
+    int32 active_projects = 1;
+    int32 total_tasks = 2;
+    int32 overdue_tasks = 3;
+    double completion_rate = 4;
+   
+    repeated DepartmentWorkload department_workload = 5;
+    repeated WeeklyTrend weekly_trend = 7;
+    double on_time_rate = 8;
+}
+
+message GetDepartmentWorkloadRequest {
+    string department_id = 1;
+    int32 days = 2;
+}
+
+message DepartmentWorkloadResponse {
+    repeated DepartmentWorkload workloads = 1;
+}
+
+message DepartmentWorkload {
+    string department_id = 1;
+    string department_name = 2;
+    int32 wip = 3;
+    int32 completed = 4;
+    int32 overdue = 5;
+    double avg_cycle_time = 6;
+    double productivity = 7;
+    double on_time_rate = 8;
+}
+
+message GetProjectTimelineRequest {
+    string project_id = 1;
+    string department_id = 2;
+}
+
+message ProjectTimelineResponse {
+    repeated ProjectTimelineControl projects = 1;
+}
+
+message ProjectTimelineControl {
+    string project_id = 1;
+    string project_name = 2;
+    int32 total_tasks = 3;
+    int32 completed_on_time = 4;
+    int32 overdue_tasks = 5;
+    double on_time_rate = 6;
+    double avg_delay_days = 7;
+    repeated DepartmentDelay departments = 8;
+}
+
+message DepartmentDelay {
+    string department_id = 1;
+    string department_name = 2;
+    int32 overdue_tasks = 3;
+    double avg_delay_days = 4;
+}
+
+
+message GetTaskTrendsRequest {
+    string department_id = 1;
+    int32 weeks = 2;
+}
+
+message TaskTrendsResponse {
+    repeated WeeklyTrend trends = 1;
+}
+
+message WeeklyTrend {
+    string week = 1;
+    int32 created = 2;
+    int32 completed = 3;
+    int32 overdue = 4;
+    double completion_rate = 5;
+    double on_time_rate = 6;
+}
+
+
+message GetEmployeeProductivityRequest {
+    string department_id = 1;
+    string from_date = 2;
+    string to_date = 3;
+}
+
+message EmployeeProductivityResponse {
+    repeated EmployeeProductivity employees = 1;
+}
+
+message EmployeeProductivity {
+    string user_id = 1;
+    string full_name = 2;
+    string email = 3;
+    int32 tasks_completed = 4;
+    int32 tasks_overdue = 5;
+    double avg_cycle_time = 6;
+    double completion_rate = 7;
+    double on_time_rate = 8;
+}

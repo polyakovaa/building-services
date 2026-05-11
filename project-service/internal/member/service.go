@@ -8,8 +8,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
+	"time"
 
 	"building-services/project-service/internal/user"
+	"building-services/project-service/internal/events"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -19,14 +22,16 @@ type Service struct {
 	projectRepo ProjectRepo
 	memberRepo  MemberRepo
 	userRepo    UserRepo
+	events      events.Publisher
 }
 
 func NewService(projectRepo ProjectRepo,
-	memberRepo MemberRepo, userRepo UserRepo) *Service {
+	memberRepo MemberRepo, userRepo UserRepo, eventPublisher events.Publisher) *Service {
 	return &Service{
 		projectRepo: projectRepo,
 		memberRepo:  memberRepo,
 		userRepo:    userRepo,
+		events:      eventPublisher,
 	}
 }
 
@@ -71,6 +76,21 @@ func (s *Service) AddMember(ctx context.Context, req *projectv1.AddMemberRequest
 	err = s.memberRepo.Add(ctx, member)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add member: %w", err)
+	}
+
+	actorUserID, err := util.GetFromContext(ctx, "user_id")
+	if err == nil && s.events != nil {
+		event := map[string]interface{}{
+			"event_type":    "project.member_added",
+			"occurred_at":   time.Now().UTC().Format(time.RFC3339Nano),
+			"actor_user_id": actorUserID,
+			"project_id":    member.ProjectId,
+			"user_id":       member.UserId,
+			"department_id": member.DepartmentId,
+		}
+		if err := s.events.Publish(ctx, "project.member_added", event); err != nil {
+			log.Printf("Failed to publish project.member_added: %v", err)
+		}
 	}
 
 	return member, nil
@@ -137,6 +157,20 @@ func (s *Service) RemoveMember(ctx context.Context, req *projectv1.RemoveMemberR
 			return nil, errs.ErrMemberNotFound
 		}
 		return nil, fmt.Errorf("failed to remove member: %w", err)
+	}
+
+	actorUserID, err := util.GetFromContext(ctx, "user_id")
+	if err == nil && s.events != nil {
+		event := map[string]interface{}{
+			"event_type":    "project.member_removed",
+			"occurred_at":   time.Now().UTC().Format(time.RFC3339Nano),
+			"actor_user_id": actorUserID,
+			"project_id":    req.ProjectId,
+			"user_id":       req.UserId,
+		}
+		if err := s.events.Publish(ctx, "project.member_removed", event); err != nil {
+			log.Printf("Failed to publish project.member_removed: %v", err)
+		}
 	}
 
 	return &emptypb.Empty{}, nil

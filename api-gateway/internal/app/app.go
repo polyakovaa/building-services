@@ -41,9 +41,22 @@ func NewApp(cfg *config.GatewayConfig) (*App, error) {
 	projectHandler := handler.NewProjectHandler(projectClient)
 	projectHealthClient := healthpb.NewHealthClient(projectConn)
 
+	analyticsServiceCfg, err := cfg.GetServiceConfig("analytics")
+	if err != nil {
+		return nil, err
+	}
+
+	analyticsClient, analyticsConn, err := clients.NewAnalyticsClient(analyticsServiceCfg.Address)
+	if err != nil {
+		return nil, err
+	}
+	analyticsHandler := handler.NewAnalyticsHandler(analyticsClient)
+	analyticsHealthClient := healthpb.NewHealthClient(analyticsConn)
+
 	healthHandler := handler.NewHealthHandler([]handler.ServiceHealth{
 		{Name: "auth", Client: authHealthClient},
 		{Name: "project", Client: projectHealthClient},
+		{Name: "analytics", Client: analyticsHealthClient},
 	})
 
 	authMiddleware := middleware.AuthRequired(cfg.JWTSecret)
@@ -57,9 +70,9 @@ func NewApp(cfg *config.GatewayConfig) (*App, error) {
 		{
 			projectHandler.RegisterRoutes(protected)
 			protected.GET("/users/me", authHandler.GetInfo)
-			protected.PUT("/users/me", authHandler.UpdateMe)
 			protected.GET("/users/:id", projectHandler.GetUserByID)
 			protected.GET("/users/by-email", projectHandler.GetUserByEmail)
+			analyticsHandler.RegisterRoutes(protected)
 
 		}
 		adminHandler.RegisterRoutes(r)

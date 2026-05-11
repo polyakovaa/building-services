@@ -9,6 +9,9 @@ services:
   project:
     address: "dns:///project_service:50052"
     timeout: 5s
+  analytics:
+    address: "dns:///analytics_service:50053"
+    timeout: 5s
 
 jwt_secret: "secret"
 logging:

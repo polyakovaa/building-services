@@ -1,0 +1,17 @@
+server:
+  port: 50053
+  timeout: 30s
+
+database:
+  host: "analytics_db"
+  port: 5432
+  name: "analytics_db"
+  user: "analytics_user"
+  password: "password"
+  ssl_mode: "disable"
+  max_open_conns: 10
+  max_idle_conns: 5
+  conn_max_lifetime: 30m
+
+logging:
+  level: "info"

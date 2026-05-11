@@ -7,6 +7,7 @@ import (
 	"building-services/project-service/internal/authz"
 	"building-services/project-service/internal/consumer"
 	department "building-services/project-service/internal/departmnet"
+	"building-services/project-service/internal/events"
 	"building-services/project-service/internal/member"
 	"building-services/project-service/internal/project"
 	"building-services/project-service/internal/task"
@@ -44,10 +45,16 @@ func main() {
 	departmentRepo := department.NewRepository(db)
 	checker := authz.NewPermissionChecker(userRepo, memberRepo, taskRepo, attachmentRepo, departmentRepo)
 
-	projectService := project.NewService(projectRepo, memberRepo, userRepo, timelineRepo, checker)
-	memberService := member.NewService(projectRepo, memberRepo, userRepo)
+	eventPublisher, err := events.NewEventPublisher("amqp://guest:guest@rabbitmq:5672/")
+	if err != nil {
+		log.Fatalf("Failed to create event publisher: %v", err)
+	}
+	defer eventPublisher.Close()
+
+	projectService := project.NewService(projectRepo, memberRepo, userRepo, timelineRepo, checker, eventPublisher)
+	memberService := member.NewService(projectRepo, memberRepo, userRepo, eventPublisher)
 	timelineService := timeline.NewService(timelineRepo, projectRepo)
-	taskService := task.NewService(taskRepo, projectRepo, checker)
+	taskService := task.NewService(taskRepo, projectRepo, userRepo, checker, eventPublisher)
 	attachmentService := attachment.NewService(taskRepo, attachmentRepo, checker)
 	departmentService := department.NewService(departmentRepo, userRepo, checker)
 

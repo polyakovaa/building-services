@@ -3,6 +3,7 @@ package project
 import (
 	projectv1 "building-services/gen/project/v1"
 	"building-services/project-service/internal/authz"
+	"building-services/project-service/internal/events"
 	"building-services/project-service/internal/user"
 
 	"building-services/project-service/internal/errs"
@@ -12,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -23,18 +25,20 @@ type Service struct {
 	userRepo     UserRepo
 	timelineRepo TimelineRepo
 	authz        PermissionChecker
+	events        events.Publisher
 }
 
 func NewService(projectRepo ProjectRepo,
 	memberRepo MemberRepo, userRepo UserRepo,
 	timelineRepo TimelineRepo,
-	authz PermissionChecker) *Service {
+	authz PermissionChecker, eventPublisher events.Publisher) *Service {
 	return &Service{
 		projectRepo:  projectRepo,
 		timelineRepo: timelineRepo,
 		memberRepo:   memberRepo,
 		userRepo:     userRepo,
 		authz:        authz,
+		events:        eventPublisher,
 	}
 }
 
@@ -122,7 +126,34 @@ func (s *Service) CreateProject(ctx context.Context, req *projectv1.CreateProjec
 		log.Printf("failed to create timeline: %v", err)
 	}
 
+	// Publish project.created event
+	if s.events != nil {
+		event := map[string]interface{}{
+			"event_type":      "project.created",
+			"occurred_at":     time.Now().UTC().Format(time.RFC3339Nano),
+			"actor_user_id":   userID,
+			"project_id":     project.Id,
+			"project_name":   project.Name,
+			"description":    project.Description,
+			"object_address": project.ObjectAddress,
+			"customer":       project.Customer,
+			"start_date":    tsToFormat(project.StartDate),
+			"end_date":      tsToFormat(project.EndDate),
+			"status":        int32(project.Status),
+		}
+		if err := s.events.Publish(ctx, "project.created", event); err != nil {
+			log.Printf("Failed to publish project.created: %v", err)
+		}
+	}
+
 	return project, nil
+}
+
+func tsToFormat(ts *timestamppb.Timestamp) string {
+	if ts == nil {
+		return ""
+	}
+	return ts.AsTime().UTC().Format(time.RFC3339Nano)
 }
 
 func (s *Service) GetProject(ctx context.Context, req *projectv1.GetProjectRequest) (*projectv1.Project, error) {
@@ -240,11 +271,33 @@ func (s *Service) ChangeProjectStatus(ctx context.Context, req *projectv1.Change
 		return nil, fmt.Errorf("%w: project status required", errs.ErrInvalidInput)
 	}
 
+	// Get existing project for event data
+	existingProject, err := s.projectRepo.FindByID(ctx, req.Id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get existing project: %w", err)
+	}
+
 	if err := s.projectRepo.UpdateStatus(ctx, req.Id, req.Status); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errs.ErrProjectNotFound
 		}
 		return nil, fmt.Errorf("failed to update project status: %w", err)
+	}
+
+	// Publish project.status_changed event
+	if s.events != nil {
+		event := map[string]interface{}{
+			"event_type":      "project.status_changed",
+			"occurred_at":     time.Now().UTC().Format(time.RFC3339Nano),
+			"actor_user_id":   userID,
+			"project_id":     req.Id,
+			"project_name":   existingProject.Name,
+			"from_status":    int32(existingProject.Status),
+			"to_status":      int32(req.Status),
+		}
+		if err := s.events.Publish(ctx, "project.status_changed", event); err != nil {
+			log.Printf("Failed to publish project.status_changed: %v", err)
+		}
 	}
 
 	return s.projectRepo.FindByID(ctx, req.Id)

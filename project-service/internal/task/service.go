@@ -9,6 +9,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
+	"time"
+
+	"building-services/project-service/internal/events"
+	"building-services/project-service/internal/user"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -17,16 +22,22 @@ import (
 type Service struct {
 	taskRepo    TaskRepo
 	projectRepo ProjectRepo
+	userRepo    UserRepo
 	authz       PermissionChecker
+	events      events.Publisher
 }
 
 func NewService(taskRepo TaskRepo,
 	projectRepo ProjectRepo,
-	authz PermissionChecker) *Service {
+	userRepo UserRepo,
+	authz PermissionChecker,
+	eventPublisher events.Publisher) *Service {
 	return &Service{
 		taskRepo:    taskRepo,
 		projectRepo: projectRepo,
+		userRepo:    userRepo,
 		authz:       authz,
+		events:      eventPublisher,
 	}
 }
 
@@ -35,6 +46,9 @@ type ProjectRepo interface {
 }
 type PermissionChecker interface {
 	Check(ctx context.Context, userID string, resourceType string, resourceID string, action string) (bool, error)
+}
+type UserRepo interface {
+	FindByID(ctx context.Context, id string) (*user.User, error)
 }
 
 type TaskRepo interface {
@@ -81,6 +95,33 @@ func (s *Service) CreateTask(ctx context.Context, req *projectv1.CreateTaskReque
 
 	if err := s.taskRepo.Create(ctx, task); err != nil {
 		return nil, fmt.Errorf("failed to create task in service: %w", err)
+	}
+
+	// Publish task.created event
+	if s.events != nil {
+		assigneeDept := ""
+		if s.userRepo != nil && task.AssignedTo != "" {
+			if u, err := s.userRepo.FindByID(ctx, task.AssignedTo); err == nil && u.DepartmentID != nil {
+				assigneeDept = *u.DepartmentID
+			}
+		}
+		event := map[string]interface{}{
+			"event_type":    "task.created",
+			"occurred_at":   time.Now().UTC().Format(time.RFC3339Nano),
+			"actor_user_id": userID,
+			"task_id":       task.Id,
+			"project_id":    task.ProjectId,
+			"user_id":       task.AssignedTo,
+			"department_id": assigneeDept,
+			"title":         task.Title,
+			"description":   task.Description,
+			"status":        int32(task.Status),
+			"priority":      int32(task.Priority),
+			"deadline":      tsToFormat(task.Deadline),
+		}
+		if err := s.events.Publish(ctx, "task.created", event); err != nil {
+			log.Printf("Failed to publish task.created: %v", err)
+		}
 	}
 
 	return task, nil
@@ -151,6 +192,29 @@ func (s *Service) UpdateTask(ctx context.Context, req *projectv1.UpdateTaskReque
 		return nil, err
 	}
 
+	if s.events != nil && deadlineChanged(existing.Deadline, updatedTask.Deadline) {
+		assigneeDept := ""
+		if s.userRepo != nil && updatedTask.AssignedTo != "" {
+			if u, err := s.userRepo.FindByID(ctx, updatedTask.AssignedTo); err == nil && u.DepartmentID != nil {
+				assigneeDept = *u.DepartmentID
+			}
+		}
+		event := map[string]interface{}{
+			"event_type":             "task.deadline_changed",
+			"occurred_at":            time.Now().UTC().Format(time.RFC3339Nano),
+			"actor_user_id":          userID,
+			"task_id":                updatedTask.Id,
+			"project_id":             existing.ProjectId,
+			"assignee_user_id":       updatedTask.AssignedTo,
+			"assignee_department_id": assigneeDept,
+			"old_deadline":           tsToFormat(existing.Deadline),
+			"new_deadline":           tsToFormat(updatedTask.Deadline),
+		}
+		if err := s.events.Publish(ctx, "task.deadline_changed", event); err != nil {
+			log.Printf("Failed to publish task.deadline_changed: %v", err)
+		}
+	}
+
 	return updatedTask, nil
 }
 
@@ -195,6 +259,14 @@ func (s *Service) UpdateTaskStatus(ctx context.Context, req *projectv1.UpdateTas
 		return nil, fmt.Errorf("%w: project status required", errs.ErrInvalidInput)
 	}
 
+	existing, err := s.taskRepo.FindByID(ctx, req.Id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errs.ErrTaskNotFound
+		}
+		return nil, fmt.Errorf("failed to get task: %w", err)
+	}
+
 	if err := s.taskRepo.UpdateStatus(ctx, req.Id, req.Status); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errs.ErrProjectNotFound
@@ -202,7 +274,36 @@ func (s *Service) UpdateTaskStatus(ctx context.Context, req *projectv1.UpdateTas
 		return nil, fmt.Errorf("failed to update task status: %w", err)
 	}
 
-	return s.taskRepo.FindByID(ctx, req.Id)
+	updated, err := s.taskRepo.FindByID(ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.events != nil && existing.Status != updated.Status {
+		assigneeDept := ""
+		if s.userRepo != nil && updated.AssignedTo != "" {
+			if u, err := s.userRepo.FindByID(ctx, updated.AssignedTo); err == nil && u.DepartmentID != nil {
+				assigneeDept = *u.DepartmentID
+			}
+		}
+		event := map[string]interface{}{
+			"event_type":             "task.status_changed",
+			"occurred_at":            time.Now().UTC().Format(time.RFC3339Nano),
+			"actor_user_id":          userID,
+			"task_id":                updated.Id,
+			"project_id":             updated.ProjectId,
+			"from_status":            int32(existing.Status),
+			"to_status":              int32(updated.Status),
+			"assignee_user_id":       updated.AssignedTo,
+			"assignee_department_id": assigneeDept,
+			"deadline":               tsToFormat(updated.Deadline),
+		}
+		if err := s.events.Publish(ctx, "task.status_changed", event); err != nil {
+			log.Printf("Failed to publish task.status_changed: %v", err)
+		}
+	}
+
+	return updated, nil
 }
 
 func (s *Service) ListTasks(ctx context.Context, req *projectv1.ListTasksRequest) (*projectv1.ListTasksResponse, error) {
@@ -278,8 +379,47 @@ func (s *Service) AssignTask(ctx context.Context, req *projectv1.AssignTaskReque
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to assign task", err)
 	}
+
+	if s.events != nil && existing.AssignedTo != req.AssigneeId {
+		toDept := ""
+		if s.userRepo != nil {
+			if u, err := s.userRepo.FindByID(ctx, req.AssigneeId); err == nil && u.DepartmentID != nil {
+				toDept = *u.DepartmentID
+			}
+		}
+		event := map[string]interface{}{
+			"event_type":       "task.assigned",
+			"occurred_at":      time.Now().UTC().Format(time.RFC3339Nano),
+			"actor_user_id":    userID,
+			"task_id":          task.Id,
+			"project_id":       task.ProjectId,
+			"from_user_id":     existing.AssignedTo,
+			"to_user_id":       req.AssigneeId,
+			"to_department_id": toDept,
+		}
+		if err := s.events.Publish(ctx, "task.assigned", event); err != nil {
+			log.Printf("Failed to publish task.assigned: %v", err)
+		}
+	}
 	return task, nil
 
+}
+
+func tsToFormat(ts *timestamppb.Timestamp) string {
+	if ts == nil {
+		return ""
+	}
+	return ts.AsTime().UTC().Format(time.RFC3339Nano)
+}
+
+func deadlineChanged(a *timestamppb.Timestamp, b *timestamppb.Timestamp) bool {
+	if a == nil && b == nil {
+		return false
+	}
+	if a == nil || b == nil {
+		return true
+	}
+	return !a.AsTime().Equal(b.AsTime())
 }
 
 func (s *Service) ListMyTasks(ctx context.Context, req *projectv1.ListMyTasksRequest) (*projectv1.ListTasksResponse, error) {

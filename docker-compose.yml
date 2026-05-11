@@ -136,11 +136,60 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-  
- 
+  analytics-service:
+    build:
+      context: .
+      dockerfile: analytics-service/Dockerfile
+    container_name: analytics_service
+    depends_on:
+      project-migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy 
+    ports:
+      - "50053:50053"
+    networks:
+        - backend
+  analytics_db:
+    image: postgres:16
+    container_name: analytics_db
+    environment:
+      POSTGRES_USER: analytics_user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: analytics_db
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U analytics_user -d analytics_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - analytics_db_data:/var/lib/postgresql/data
+    networks:
+        - backend
+    
+  analytics-migrate:
+    image: migrate/migrate
+    container_name: analytics_migrate
+    volumes:
+      - ./analytics-service/migrations:/migrations
+    command: [
+        "-path", "/migrations",
+        "-database", "postgres://analytics_user:password@analytics_db:5432/analytics_db?sslmode=disable",
+        "up"
+      ]
+    depends_on:
+      analytics_db:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: "no"
+
 volumes:
   auth_db_data:
   project_db_data:
+  analytics_db_data:
 
 networks:
     backend:
