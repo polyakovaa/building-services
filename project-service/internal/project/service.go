@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -25,7 +26,7 @@ type Service struct {
 	userRepo     UserRepo
 	timelineRepo TimelineRepo
 	authz        PermissionChecker
-	events        events.Publisher
+	events       events.Publisher
 }
 
 func NewService(projectRepo ProjectRepo,
@@ -38,7 +39,7 @@ func NewService(projectRepo ProjectRepo,
 		memberRepo:   memberRepo,
 		userRepo:     userRepo,
 		authz:        authz,
-		events:        eventPublisher,
+		events:       eventPublisher,
 	}
 }
 
@@ -56,7 +57,8 @@ type ProjectRepo interface {
 }
 type UserRepo interface {
 	FindByID(ctx context.Context, id string) (*user.User, error)
-	FindByEmail(ctx context.Context, id string) (*user.User, error)
+	FindByEmail(ctx context.Context, email string) (*user.User, error)
+	Find(ctx context.Context, query string, limit int) ([]*user.User, error)
 }
 
 type MemberRepo interface {
@@ -126,20 +128,19 @@ func (s *Service) CreateProject(ctx context.Context, req *projectv1.CreateProjec
 		log.Printf("failed to create timeline: %v", err)
 	}
 
-	// Publish project.created event
 	if s.events != nil {
 		event := map[string]interface{}{
-			"event_type":      "project.created",
-			"occurred_at":     time.Now().UTC().Format(time.RFC3339Nano),
-			"actor_user_id":   userID,
+			"event_type":     "project.created",
+			"occurred_at":    time.Now().UTC().Format(time.RFC3339Nano),
+			"actor_user_id":  userID,
 			"project_id":     project.Id,
 			"project_name":   project.Name,
 			"description":    project.Description,
 			"object_address": project.ObjectAddress,
 			"customer":       project.Customer,
-			"start_date":    tsToFormat(project.StartDate),
-			"end_date":      tsToFormat(project.EndDate),
-			"status":        int32(project.Status),
+			"start_date":     tsToFormat(project.StartDate),
+			"end_date":       tsToFormat(project.EndDate),
+			"status":         int32(project.Status),
 		}
 		if err := s.events.Publish(ctx, "project.created", event); err != nil {
 			log.Printf("Failed to publish project.created: %v", err)
@@ -271,7 +272,6 @@ func (s *Service) ChangeProjectStatus(ctx context.Context, req *projectv1.Change
 		return nil, fmt.Errorf("%w: project status required", errs.ErrInvalidInput)
 	}
 
-	// Get existing project for event data
 	existingProject, err := s.projectRepo.FindByID(ctx, req.Id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get existing project: %w", err)
@@ -284,16 +284,15 @@ func (s *Service) ChangeProjectStatus(ctx context.Context, req *projectv1.Change
 		return nil, fmt.Errorf("failed to update project status: %w", err)
 	}
 
-	// Publish project.status_changed event
 	if s.events != nil {
 		event := map[string]interface{}{
-			"event_type":      "project.status_changed",
-			"occurred_at":     time.Now().UTC().Format(time.RFC3339Nano),
-			"actor_user_id":   userID,
-			"project_id":     req.Id,
-			"project_name":   existingProject.Name,
-			"from_status":    int32(existingProject.Status),
-			"to_status":      int32(req.Status),
+			"event_type":    "project.status_changed",
+			"occurred_at":   time.Now().UTC().Format(time.RFC3339Nano),
+			"actor_user_id": userID,
+			"project_id":    req.Id,
+			"project_name":  existingProject.Name,
+			"from_status":   int32(existingProject.Status),
+			"to_status":     int32(req.Status),
 		}
 		if err := s.events.Publish(ctx, "project.status_changed", event); err != nil {
 			log.Printf("Failed to publish project.status_changed: %v", err)
@@ -314,11 +313,19 @@ func (s *Service) ListProjects(ctx context.Context, req *projectv1.ListProjectsR
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
+	userRole := user.Role
+	if roleFromContext, err := util.GetFromContext(ctx, "user_role"); err == nil && roleFromContext != "" {
+		userRole = roleFromContext
+	}
+
 	filter := &ProjectFilter{
 		Status:    req.StatusFilter,
 		ManagerID: req.ManagerId,
 		UserID:    userID,
-		UserRole:  user.Role,
+		UserRole:  userRole,
+	}
+	if user != nil && user.DepartmentID != nil {
+		filter.DepartmentID = user.DepartmentID
 	}
 
 	projects, err := s.projectRepo.List(ctx, filter)
@@ -347,10 +354,11 @@ func (s *Service) GetUser(ctx context.Context, req *projectv1.GetUserRequest) (*
 	}
 
 	return &projectv1.User{
-		Id:       user.ID,
-		FullName: user.FullName,
-		Email:    user.Email,
-		Role:     user.Role,
+		Id:           user.ID,
+		FullName:     user.FullName,
+		Email:        user.Email,
+		Role:         user.Role,
+		DepartmentId: stringValue(user.DepartmentID),
 	}, nil
 }
 
@@ -368,9 +376,43 @@ func (s *Service) GetUserByEmail(ctx context.Context, req *projectv1.GetUserByEm
 	}
 
 	return &projectv1.User{
-		Id:       user.ID,
-		FullName: user.FullName,
-		Email:    user.Email,
-		Role:     user.Role,
+		Id:           user.ID,
+		FullName:     user.FullName,
+		Email:        user.Email,
+		Role:         user.Role,
+		DepartmentId: stringValue(user.DepartmentID),
 	}, nil
+}
+
+func (s *Service) FindUsers(ctx context.Context, req *projectv1.FindUsersRequest) (*projectv1.FindUsersResponse, error) {
+	q := strings.TrimSpace(req.Query)
+	limit := int(req.Limit)
+	if limit <= 0 {
+		limit = 100
+	}
+	if q != "" && len(q) < 2 {
+		return &projectv1.FindUsersResponse{}, nil
+	}
+	users, err := s.userRepo.Find(ctx, q, limit)
+	if err != nil {
+		return nil, fmt.Errorf("find users: %w", err)
+	}
+	out := make([]*projectv1.User, 0, len(users))
+	for _, u := range users {
+		out = append(out, &projectv1.User{
+			Id:           u.ID,
+			FullName:     u.FullName,
+			Email:        u.Email,
+			Role:         u.Role,
+			DepartmentId: stringValue(u.DepartmentID),
+		})
+	}
+	return &projectv1.FindUsersResponse{Users: out}, nil
+}
+
+func stringValue(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

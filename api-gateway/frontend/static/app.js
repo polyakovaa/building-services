@@ -170,22 +170,157 @@ async function getUserName(userId) {
     } catch (err) {}
     return 'Пользователь';
 }
+
+function formatUserOptionLabel(user) {
+    if (!user) return '';
+    const name = user.user_full_name || user.full_name || '';
+    const email = user.user_email || user.email || '';
+    if (name && email) return `${name} (${email})`;
+    return name || email || user.user_id || user.id || '';
+}
+
+async function fetchProjectMembers(projectId) {
+    if (!projectId) return [];
+    try {
+        const response = await apiRequest(`/api/projects/${projectId}/members`);
+        if (!response.ok) return [];
+        const data = await response.json();
+        return data.members || [];
+    } catch (err) {
+        return [];
+    }
+}
+
+function sortUsersByLabel(users) {
+    return [...(users || [])].sort((a, b) =>
+        formatUserOptionLabel(a).localeCompare(formatUserOptionLabel(b), 'ru', { sensitivity: 'base' })
+    );
+}
+
+function fillUserSelect(selectEl, users, selectedUserId, placeholder) {
+    if (!selectEl) return;
+    const emptyLabel = placeholder || 'Не назначен';
+    selectEl.innerHTML = `<option value="">${emptyLabel}</option>`;
+    sortUsersByLabel(users).forEach((u) => {
+        const id = u.user_id || u.id;
+        if (!id) return;
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = formatUserOptionLabel(u);
+        if (selectedUserId && id === selectedUserId) opt.selected = true;
+        selectEl.appendChild(opt);
+    });
+}
+
+function filterUserSelect(selectEl, filterText) {
+    if (!selectEl) return;
+    const q = (filterText || '').trim().toLowerCase();
+    Array.from(selectEl.options).forEach((opt) => {
+        if (opt.value === '') {
+            opt.hidden = false;
+            return;
+        }
+        opt.hidden = q !== '' && !opt.textContent.toLowerCase().includes(q);
+    });
+}
+
+async function findUsers(query) {
+    const q = (query || '').trim();
+    if (q.length === 1) return [];
+    try {
+        const response = await apiRequest(`/api/users/find?q=${encodeURIComponent(q)}`);
+        if (!response.ok) return [];
+        const data = await response.json();
+        return data.users || [];
+    } catch (err) {
+        return [];
+    }
+}
+
+async function loadUsersForMemberSelect(selectEl, projectId) {
+    const [allUsers, members] = await Promise.all([
+        findUsers(''),
+        fetchProjectMembers(projectId),
+    ]);
+    const memberIds = new Set(members.map((m) => m.user_id).filter(Boolean));
+    const available = allUsers.filter((u) => u && u.id && !memberIds.has(u.id));
+    fillUserSelect(selectEl, available, '', 'Выберите пользователя');
+}
 async function loadUserInfo() {
+    const cachedName = localStorage.getItem('user_name') || '';
+    const cachedRole = localStorage.getItem('user_role') || '';
+    const userNameEl = document.getElementById('userName');
+    const userRoleEl = document.getElementById('userRole');
+    const roles = {
+        'ROLE_DIRECTOR':'Директор',
+        'ROLE_GIP':'ГИП',
+        'ROLE_DEPARTMENT_MANAGER':'Руководитель отдела',
+        'ROLE_PROJECT_MANAGER':'ПМ',
+        'ROLE_WORKER':'Инженер'
+    };
+
+    if (userNameEl && cachedName) userNameEl.textContent = cachedName;
+    if (userRoleEl && cachedRole) userRoleEl.textContent = roles[cachedRole] || '';
+    updateAnalyticsMenu(cachedRole);
+
     try {
         const response = await apiRequest('/api/users/me');
         if (response.ok) {
             const user = await response.json();
-            document.getElementById('userName').textContent = user.full_name || 'Пользователь';
-            const roles = { 
-                'ROLE_DIRECTOR':'Директор',
-                'ROLE_GIP':'ГИП',
-                'ROLE_DEPARTMENT_MANAGER':'Руководитель отдела',
-                'ROLE_PROJECT_MANAGER':'ПМ',
-                'ROLE_WORKER':'Инженер'
-            };
-            document.getElementById('userRole').textContent = roles[user.role] || '';
+            localStorage.setItem('user_name', user.full_name || user.email || 'Пользователь');
+            localStorage.setItem('user_role', user.role || cachedRole);
+            if (userNameEl) userNameEl.textContent = user.full_name || user.email || 'Пользователь';
+            if (userRoleEl) userRoleEl.textContent = roles[user.role] || '';
+            updateAnalyticsMenu(user.role);
         }
     } catch(err) {
         console.error(err);
     }
 }
+
+function updateAnalyticsMenu(role) {
+    const analyticsMenuItem = document.getElementById('analyticsMenuItem');
+    if (!analyticsMenuItem) return;
+    if (role && role !== 'ROLE_WORKER') {
+        analyticsMenuItem.style.display = 'flex';
+        analyticsMenuItem.onclick = () => window.location.href = '/analytics';
+    } else {
+        analyticsMenuItem.style.display = 'none';
+    }
+}
+
+async function updateNotificationBadge() {
+    const badge = document.getElementById('notifCount');
+    if (!badge) return;
+    try {
+        const response = await apiRequest('/api/notifications/unread-count');
+        const data = await response.json();
+        const count = Number(data.count || 0);
+        if (count > 0) {
+            badge.textContent = count > 99 ? '99+' : String(count);
+            badge.style.display = 'inline-flex';
+        } else {
+            badge.textContent = '';
+            badge.style.display = 'none';
+        }
+    } catch (err) {
+        console.error('Failed to load notification count', err);
+        badge.style.display = 'none';
+    }
+}
+
+function initNotificationsNavigation() {
+    document.querySelectorAll('[data-page="notifications"]').forEach(item => {
+        item.addEventListener('click', () => {
+            window.location.href = '/notifications';
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    initNotificationsNavigation();
+    updateNotificationBadge();
+    if (document.getElementById('notifCount')) {
+        setInterval(updateNotificationBadge, 60000);
+    }
+});

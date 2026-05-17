@@ -97,16 +97,13 @@ func main() {
 	go func() {
 		for {
 			ctx := context.Background()
-
 			dbErr := db.PingContext(ctx)
-
 			if dbErr != nil {
 				healthServer.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
 				log.Printf("Health check for Project service failed: %v", dbErr)
 			} else {
 				healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 			}
-
 			time.Sleep(5 * time.Second)
 		}
 	}()
@@ -114,5 +111,4 @@ func main() {
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}
-
 }

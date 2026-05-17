@@ -18,6 +18,7 @@ service ProjectService {
     rpc ChangeProjectStatus(ChangeProjectStatusRequest) returns (Project);
     rpc GetUser(GetUserRequest) returns (User);
     rpc GetUserByEmail(GetUserByEmailRequest) returns (User);
+    rpc FindUsers(FindUsersRequest) returns (FindUsersResponse);
 }
 
 
@@ -94,10 +95,20 @@ message User {
     string full_name = 2;
     string email = 3;
     string role = 4;
+    string department_id = 5;
 }
 
 message GetUserByEmailRequest {
     string email = 1;
+}
+
+message FindUsersRequest {
+    string query = 1;
+    int32 limit = 2;
+}
+
+message FindUsersResponse {
+    repeated User users = 1;
 }
 
 

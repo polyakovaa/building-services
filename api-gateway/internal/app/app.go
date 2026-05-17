@@ -50,13 +50,26 @@ func NewApp(cfg *config.GatewayConfig) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	analyticsHandler := handler.NewAnalyticsHandler(analyticsClient)
+	analyticsHandler := handler.NewAnalyticsHandler(analyticsClient, projectClient.Project)
 	analyticsHealthClient := healthpb.NewHealthClient(analyticsConn)
+
+	notificationServiceCfg, err := cfg.GetServiceConfig("notification")
+	if err != nil {
+		return nil, err
+	}
+
+	notificationClient, notificationConn, err := clients.NewNotificationClient(notificationServiceCfg.Address)
+	if err != nil {
+		return nil, err
+	}
+	notificationHandler := handler.NewNotificationHandler(notificationClient)
+	notificationHealthClient := healthpb.NewHealthClient(notificationConn)
 
 	healthHandler := handler.NewHealthHandler([]handler.ServiceHealth{
 		{Name: "auth", Client: authHealthClient},
 		{Name: "project", Client: projectHealthClient},
 		{Name: "analytics", Client: analyticsHealthClient},
+		{Name: "notification", Client: notificationHealthClient},
 	})
 
 	authMiddleware := middleware.AuthRequired(cfg.JWTSecret)
@@ -70,9 +83,12 @@ func NewApp(cfg *config.GatewayConfig) (*App, error) {
 		{
 			projectHandler.RegisterRoutes(protected)
 			protected.GET("/users/me", authHandler.GetInfo)
-			protected.GET("/users/:id", projectHandler.GetUserByID)
+			protected.PUT("/users/me", authHandler.UpdateMe)
+			protected.GET("/users/find", projectHandler.FindUsers)
 			protected.GET("/users/by-email", projectHandler.GetUserByEmail)
+			protected.GET("/users/:id", projectHandler.GetUserByID)
 			analyticsHandler.RegisterRoutes(protected)
+			notificationHandler.RegisterRoutes(protected)
 
 		}
 		adminHandler.RegisterRoutes(r)
@@ -107,6 +123,15 @@ func serveFrontend(r *gin.Engine) {
 	})
 	r.GET("/tasks", func(c *gin.Context) {
 		c.File("./frontend/tasks.html")
+	})
+	r.GET("/calendar", func(c *gin.Context) {
+		c.File("./frontend/calendar.html")
+	})
+	r.GET("/analytics", func(c *gin.Context) {
+		c.File("./frontend/analytics.html")
+	})
+	r.GET("/notifications", func(c *gin.Context) {
+		c.File("./frontend/notifications.html")
 	})
 	r.GET("/profile", func(c *gin.Context) {
 		c.File("./frontend/profile.html")

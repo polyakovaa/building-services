@@ -11,10 +11,10 @@
 <body class="dashboard-body">
     <div class="dashboard-container">
         <div class="header">
-            <a class="back-link" onclick="window.location.href='/projects'">← Назад к проектам</a>
+            <a class="back-link" onclick="window.location.href='/projects'">Назад к проектам</a>
             <h1>Проект</h1>
             <div class="user-info">
-                <span class="user-name" id="userName">Загрузка...</span>
+                <span class="user-name" id="userName"></span>
                 <span class="user-role" id="userRole"></span>
                 <button class="logout-btn" onclick="logout()">Выйти</button>
             </div>
@@ -72,8 +72,11 @@
         <div class="modal-content">
             <h3>Добавить участника</h3>
             <div class="form-group">
-                <label>Email участника</label>
-                <input type="email" id="memberEmail" placeholder="email@example.com">
+                <label>Участник</label>
+                <input type="text" id="memberFilter" class="user-filter-input" placeholder="Фильтр по имени или email" autocomplete="off">
+                <select id="memberUserId" class="user-picker-select" size="10">
+                    <option value="">Выберите пользователя</option>
+                </select>
             </div>
             <div class="modal-buttons">
                 <button class="cancel-btn" onclick="closeAddMemberModal()">Отмена</button>
@@ -107,8 +110,10 @@
                 </select>
             </div>
             <div class="form-group">
-                <label>Исполнитель (Email)</label>
-                <input type="email" id="taskAssigneeEmail" placeholder="email@example.com">
+                <label>Исполнитель</label>
+                <select id="taskAssigneeId">
+                    <option value="">Не назначен</option>
+                </select>
             </div>
             <div class="modal-buttons">
                 <button class="cancel-btn" onclick="closeTaskModal()">Отмена</button>
@@ -189,8 +194,6 @@
                 container.innerHTML = '<div class="empty-state">Ошибка загрузки</div>';
             }
         }
-        
-
         async function loadInfoTab(container) {
             const response = await apiRequest(`/api/projects/${projectId}`);
             if (!response.ok) {
@@ -245,23 +248,10 @@
                 const canAddMember = currentUserRole !== 'ROLE_WORKER';
                 const canDeleteMember = currentUserRole === 'ROLE_DIRECTOR';
                 
-                let departmentNameByID = {};
-                try {
-                    const deptResp = await apiRequest('/api/departments');
-                    if (deptResp.ok) {
-                        const deptData = await deptResp.json();
-                        const depts = deptData.departments || [];
-                        depts.forEach(d => {
-                            if (d && d.id) departmentNameByID[d.id] = d.name || d.id;
-                        });
-                    }
-                } catch (e) {
-                }
-                
-                const membersWithNames = await Promise.all(members.map(async (m) => {
-                    const userName = await getUserName(m.user_id);
-                    const deptName = m.department_id ? (departmentNameByID[m.department_id] || m.department_id) : '';
-                    return { ...m, user_name: userName, department_name: deptName };
+                const membersWithNames = members.map((m) => ({
+                    ...m,
+                    user_name: m.user_full_name || m.user_id,
+                    department_name: m.department_name || '—'
                 }));
                 
                 container.innerHTML = `
@@ -274,7 +264,8 @@
                             <div class="member-item">
                                 <div class="member-info">
                                     <strong>${escapeHtml(m.user_name)}</strong>
-                                    ${m.department_name ? `<div style="color:#64748b; font-size:12px; margin-top:4px;">Отдел: ${escapeHtml(m.department_name)}</div>` : `<div style="color:#94a3b8; font-size:12px; margin-top:4px;">Отдел: —</div>`}
+                                    ${m.user_email ? `<div style="color:#94a3b8;font-size:12px;margin-top:2px;">${escapeHtml(m.user_email)}</div>` : ''}
+                                    <div style="color:#64748b; font-size:12px; margin-top:4px;">Отдел: ${escapeHtml(m.department_name)}</div>
                                 </div>
                                 <div class="member-meta">
                                     <span>${formatDate(m.joined_at)}</span>
@@ -433,19 +424,32 @@
             }
         }
         
-        function openAddMemberModal() { document.getElementById('addMemberModal').classList.add('active'); }
-        function closeAddMemberModal() { document.getElementById('addMemberModal').classList.remove('active'); document.getElementById('memberEmail').value = ''; }
+        async function openAddMemberModal() {
+            document.getElementById('addMemberModal').classList.add('active');
+            const filter = document.getElementById('memberFilter');
+            if (filter) filter.value = '';
+            const sel = document.getElementById('memberUserId');
+            sel.innerHTML = '<option value="">Загрузка...</option>';
+            await loadUsersForMemberSelect(sel, projectId);
+            if (sel.options.length <= 1 && !sel.options[0]?.value) {
+                sel.innerHTML = '<option value="">Нет доступных пользователей</option>';
+            }
+        }
+        function closeAddMemberModal() {
+            document.getElementById('addMemberModal').classList.remove('active');
+            const filter = document.getElementById('memberFilter');
+            if (filter) filter.value = '';
+            const sel = document.getElementById('memberUserId');
+            if (sel) sel.value = '';
+        }
         
         async function addMember() {
-            const email = document.getElementById('memberEmail').value;
-            if (!email) { alert('Введите email'); return; }
+            const userId = document.getElementById('memberUserId').value;
+            if (!userId) { alert('Выберите пользователя из списка'); return; }
             try {
-                const userRes = await apiRequest(`/api/users/by-email?email=${encodeURIComponent(email)}`);
-                if (!userRes.ok) { alert('Пользователь не найден'); return; }
-                const user = await userRes.json();
                 const response = await apiRequest(`/api/projects/${projectId}/members`, {
                     method: 'POST',
-                    body: JSON.stringify({ user_id: user.id })
+                    body: JSON.stringify({ user_id: userId })
                 });
                 if (response.ok) { closeAddMemberModal(); await loadTabContent('members'); alert('Участник добавлен'); }
                 else alert('Ошибка');
@@ -476,24 +480,26 @@
             } catch(err) { alert('Ошибка'); }
         }
         
-        function openTaskModal() { document.getElementById('createTaskModal').classList.add('active'); }
-        function closeTaskModal() { document.getElementById('createTaskModal').classList.remove('active'); document.getElementById('taskTitle').value = ''; document.getElementById('taskDescription').value = ''; document.getElementById('taskDeadline').value = ''; document.getElementById('taskAssigneeEmail').value = ''; }
+        async function openTaskModal() {
+            document.getElementById('createTaskModal').classList.add('active');
+            const members = await fetchProjectMembers(projectId);
+            fillUserSelect(document.getElementById('taskAssigneeId'), members, '');
+        }
+        function closeTaskModal() {
+            document.getElementById('createTaskModal').classList.remove('active');
+            document.getElementById('taskTitle').value = '';
+            document.getElementById('taskDescription').value = '';
+            document.getElementById('taskDeadline').value = '';
+            const sel = document.getElementById('taskAssigneeId');
+            if (sel) sel.value = '';
+        }
         
         async function createTask() {
             if (!projectId) {
         alert('ID проекта не найден. Перезагрузите страницу.');
         return;
     }
-            const assigneeEmail = document.getElementById('taskAssigneeEmail').value;
-            let assigneeId = null;
-            if (assigneeEmail) {
-                try {
-                    const userRes = await apiRequest(`/api/users/by-email?email=${encodeURIComponent(assigneeEmail)}`);
-                    if (!userRes.ok) { alert('Исполнитель не найден'); return; }
-                    const user = await userRes.json();
-                    assigneeId = user.id;
-                } catch(err) { alert('Ошибка поиска пользователя'); return; }
-            }
+            const assigneeId = document.getElementById('taskAssigneeId').value || null;
             const priorityMap = {
                 1: 'low',
                 2: 'medium',
@@ -523,6 +529,11 @@
         });
         
         async function init() {
+            const memberFilter = document.getElementById('memberFilter');
+            const memberSelect = document.getElementById('memberUserId');
+            if (memberFilter && memberSelect) {
+                memberFilter.addEventListener('input', () => filterUserSelect(memberSelect, memberFilter.value));
+            }
             try {
                 const response = await apiRequest('/api/users/me');
                 if (response.ok) {

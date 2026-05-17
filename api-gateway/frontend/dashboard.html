@@ -30,13 +30,13 @@
                     <li class="sidebar-item" data-page="tasks" onclick="window.location.href='/tasks'">
                         <span>Мои задачи</span>
                     </li>
-                    <li class="sidebar-item" data-page="calendar">
+                    <li class="sidebar-item" data-page="calendar" onclick="window.location.href='/calendar'">
                         <span>Календарь</span>
                     </li>
-                    <li class="sidebar-item" data-page="analytics">
+                    <li class="sidebar-item" data-page="analytics" id="analyticsMenuItem" style="display: none;">
                         <span>Аналитика</span>
                     </li>
-                    <li class="sidebar-item" data-page="notifications">
+                    <li class="sidebar-item" data-page="notifications" onclick="window.location.href='/notifications'">
                         <span>Уведомления</span>
                         <span class="notification-badge" id="notifCount"></span>
                     </li>
@@ -87,7 +87,7 @@
                         <div class="loading">Загрузка проектов...</div>
                     </div>
                     <div class="quick-link">
-                        <a href="#" data-page="projects">→ Все проекты</a>
+                        <a href="#" data-page="projects">Все проекты</a>
                     </div>
                 </div>
             </div>
@@ -95,102 +95,169 @@
     </div>
 
     <script>
-        
+        let dashboardProjectsCache = [];
+        let dashboardTasksCache = [];
+
+        function tsSeconds(ts) {
+            if (!ts || ts.seconds === undefined || ts.seconds === null) return null;
+            const n = Number(ts.seconds);
+            return Number.isFinite(n) ? n : null;
+        }
+
+        function renderRecentChanges() {
+            const el = document.getElementById('changesContainer');
+            if (!el) return;
+
+            const items = [];
+            for (const t of dashboardTasksCache) {
+                const sec = tsSeconds(t.updated_at) ?? tsSeconds(t.created_at);
+                if (sec === null) continue;
+                items.push({
+                    sort: sec,
+                    html: `<div class="changes-item">
+                        <span class="changes-text">Задача обновлена: <a href="/task/${escapeHtml(t.id)}">${escapeHtml(t.title || 'Без названия')}</a></span>
+                        <span class="changes-date">${new Date(sec * 1000).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                    </div>`
+                });
+            }
+            for (const p of dashboardProjectsCache) {
+                const sec = tsSeconds(p.updated_at) ?? tsSeconds(p.created_at);
+                if (sec === null) continue;
+                items.push({
+                    sort: sec,
+                    html: `<div class="changes-item">
+                        <span class="changes-text">Проект обновлён: <a href="/project/${escapeHtml(p.id)}">${escapeHtml(p.name || 'Без названия')}</a></span>
+                        <span class="changes-date">${new Date(sec * 1000).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                    </div>`
+                });
+            }
+
+            items.sort((a, b) => b.sort - a.sort);
+            const top = items.slice(0, 15);
+            if (top.length === 0) {
+                el.innerHTML = '<div class="empty">Нет данных: нет задач и проектов с датой изменения или не удалось загрузить списки.</div>';
+                return;
+            }
+            el.innerHTML = top.map(x => x.html).join('');
+        }
+
         async function loadProjects() {
             const container = document.getElementById('projectsContainer');
             
             try {
                 const response = await apiRequest('/api/projects');
-                
-                if (response.ok) {
-                    const projects = await response.json();
-                    const projectsArray = Array.isArray(projects) ? projects : (projects.projects || []);
-                    
-                    document.getElementById('activeProjects').textContent = projectsArray.length;
-                    
-                    if (projectsArray.length === 0) {
-                        container.innerHTML = '<div class="empty">Нет проектов</div>';
-                        return;
-                    }
-                    
-                    container.innerHTML = projectsArray.slice(0, 3).map(project => `
-                        <div class="project-card">
-                            <h3>${project.name || 'Без названия'}</h3>
-                            <p>${project.description || 'Нет описания'}</p>
-                            <span class="status">${getProjectStatusText(project.status) || 'Активен'}</span>
-                        </div>
-                    `).join('');
-                } else {
-                    container.innerHTML = '<div class="empty">Ошибка загрузки проектов</div>';
+                const projects = await response.json();
+                const projectsArray = Array.isArray(projects) ? projects : (projects.projects || []);
+                dashboardProjectsCache = projectsArray;
+
+                document.getElementById('activeProjects').textContent = projectsArray.length;
+
+                if (projectsArray.length === 0) {
+                    container.innerHTML = '<div class="empty">Нет проектов</div>';
+                    return;
                 }
+
+                container.innerHTML = projectsArray.slice(0, 3).map(project => `
+                    <div class="project-card">
+                        <h3>${escapeHtml(project.name) || 'Без названия'}</h3>
+                        <p>${escapeHtml(project.description) || 'Нет описания'}</p>
+                        <span class="status">${getProjectStatusText(project.status) || 'Активен'}</span>
+                    </div>
+                `).join('');
             } catch (err) {
                 console.error(err);
-                container.innerHTML = '<div class="empty">Ошибка соединения</div>';
+                dashboardProjectsCache = [];
+                document.getElementById('activeProjects').textContent = '0';
+                container.innerHTML = '<div class="empty">Ошибка загрузки проектов</div>';
             }
         }
         
         
         async function loadMyTasks() {
+            const deadlinesContainer = document.getElementById('deadlinesContainer');
             try {
                 const response = await apiRequest('/api/tasks/my');
-                if (response.ok) {
-                    const data = await response.json();
-                    const tasks = data.tasks || [];
-                 
-                    const activeTasks = tasks.filter(t => t.status !== 3).length;
-                    const inProgress = tasks.filter(t => t.status === 2).length;
-                    const overdue = tasks.filter(t => {
-                        if (!t.deadline) return false;
-                        if (t.status === 3) return false;
-                        const deadlineDate = new Date(t.deadline.seconds * 1000);
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        return deadlineDate < today;
-                    }).length;
-                    const today = tasks.filter(t => {
-                        if (!t.deadline) return false;
-                        if (t.status === 3) return false;
-                        const deadline = new Date(t.deadline.seconds * 1000);
-                        const today = new Date();
-                        return deadline.toDateString() === today.toDateString();
-                    }).length;
-                    document.getElementById('myTasks').textContent = activeTasks;
-                    document.getElementById('overdueTasks').textContent = overdue;
-                    document.getElementById('todayTasks').textContent = today;
-                    const sorted = tasks
-                        .filter(t => t.deadline && t.status !== 3)
-                        .sort((a, b) => a.deadline.seconds - b.deadline.seconds)
-                        .slice(0, 5);
-                        
-                    const deadlinesContainer = document.getElementById('deadlinesContainer');
-                    if (deadlinesContainer) {
+                const data = await response.json();
+                const tasks = data.tasks || [];
+                dashboardTasksCache = tasks;
+
+                const activeTasks = tasks.filter(t => t.status !== 3).length;
+                const overdue = tasks.filter(t => {
+                    if (!t.deadline) return false;
+                    if (t.status === 3) return false;
+                    const deadlineDate = new Date(t.deadline.seconds * 1000);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    return deadlineDate < today;
+                }).length;
+                const todayCount = tasks.filter(t => {
+                    if (!t.deadline) return false;
+                    if (t.status === 3) return false;
+                    const deadline = new Date(t.deadline.seconds * 1000);
+                    const today = new Date();
+                    return deadline.toDateString() === today.toDateString();
+                }).length;
+                document.getElementById('myTasks').textContent = activeTasks;
+                document.getElementById('overdueTasks').textContent = overdue;
+                document.getElementById('todayTasks').textContent = todayCount;
+
+                const sorted = tasks
+                    .filter(t => t.deadline && t.status !== 3)
+                    .sort((a, b) => a.deadline.seconds - b.deadline.seconds)
+                    .slice(0, 5);
+
+                if (deadlinesContainer) {
+                    if (sorted.length === 0) {
+                        deadlinesContainer.innerHTML = '<div class="empty">Нет ближайших дедлайнов</div>';
+                    } else {
                         deadlinesContainer.innerHTML = sorted.map(t => `
                             <div class="deadline-item">
-                                <span class="deadline-name">${t.title || 'Без названия'}</span>
+                                <span class="deadline-name"><a href="/task/${escapeHtml(t.id)}" class="deadline-task-link">${escapeHtml(t.title) || 'Без названия'}</a></span>
                                 <span class="deadline-date ${isUrgent(t.deadline) ? 'deadline-urgent' : ''}">
-                                    ${new Date(t.deadline.seconds * 1000).toLocaleDateString()}
+                                    ${new Date(t.deadline.seconds * 1000).toLocaleDateString('ru-RU')}
                                 </span>
                             </div>
                         `).join('');
-                        
-                        if (sorted.length === 0) {
-                            deadlinesContainer.innerHTML = '<div class="empty">Нет ближайших дедлайнов</div>';
-                        }
                     }
                 }
             } catch (err) {
                 console.error('Failed to load tasks:', err);
+                dashboardTasksCache = [];
+                document.getElementById('myTasks').textContent = '—';
+                document.getElementById('overdueTasks').textContent = '—';
+                document.getElementById('todayTasks').textContent = '—';
+                if (deadlinesContainer) {
+                    deadlinesContainer.innerHTML = '<div class="empty">Не удалось загрузить задачи</div>';
+                }
             }
         }
 
         
 
         async function loadDashboardData() {
-            await Promise.all([
-                loadUserInfo(),
-                loadProjects(),
-                loadMyTasks()
-            ]);
+            try {
+                await Promise.all([
+                    loadUserInfo(),
+                    loadProjects(),
+                    loadMyTasks()
+                ]);
+            } finally {
+                renderRecentChanges();
+            }
+            showHideAnalyticsButton();
+        }
+
+        function showHideAnalyticsButton() {
+            const userRole = localStorage.getItem('user_role');
+            const analyticsMenuItem = document.getElementById('analyticsMenuItem');
+            
+            if (analyticsMenuItem) {
+                // Показать аналитику для всех ролей кроме ROLE_WORKER
+                if (userRole !== 'ROLE_WORKER') {
+                    analyticsMenuItem.style.display = 'block';
+                    analyticsMenuItem.onclick = () => window.location.href='/analytics';
+                }
+            }
         }
 
         
@@ -208,7 +275,7 @@
                 e.preventDefault();
                 const page = link.dataset.page;
                 if (page === 'projects') {
-                    window.location.href = '/projects.html';
+                    window.location.href = '/projects';
                 }
             });
         });

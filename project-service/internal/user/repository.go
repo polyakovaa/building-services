@@ -4,10 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 )
 
 type Repository interface {
 	FindByID(ctx context.Context, id string) (*User, error)
+	FindByEmail(ctx context.Context, email string) (*User, error)
+	Find(ctx context.Context, query string, limit int) ([]*User, error)
 	Upsert(ctx context.Context, user *User) error
 }
 
@@ -83,4 +86,47 @@ func (r *postgresRepository) FindByEmail(ctx context.Context, email string) (*Us
 	}
 
 	return &user, nil
+}
+
+func (r *postgresRepository) Find(ctx context.Context, query string, limit int) ([]*User, error) {
+	q := strings.TrimSpace(query)
+	if limit <= 0 || limit > 100 {
+		limit = 100
+	}
+
+	var rows *sql.Rows
+	var err error
+	if q == "" {
+		rows, err = r.db.QueryContext(ctx, `
+			SELECT id, full_name, email, role, department_id
+			FROM users
+			ORDER BY full_name, email
+			LIMIT $1`, limit)
+	} else {
+		pattern := "%" + q + "%"
+		rows, err = r.db.QueryContext(ctx, `
+			SELECT id, full_name, email, role, department_id
+			FROM users
+			WHERE full_name ILIKE $1 OR email ILIKE $1
+			ORDER BY full_name, email
+			LIMIT $2`, pattern, limit)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find users: %w", err)
+	}
+	defer rows.Close()
+
+	var users []*User
+	for rows.Next() {
+		var u User
+		var deptID sql.NullString
+		if err := rows.Scan(&u.ID, &u.FullName, &u.Email, &u.Role, &deptID); err != nil {
+			return nil, err
+		}
+		if deptID.Valid {
+			u.DepartmentID = &deptID.String
+		}
+		users = append(users, &u)
+	}
+	return users, rows.Err()
 }

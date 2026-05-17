@@ -11,83 +11,111 @@
 <body class="dashboard-body">
     <div class="dashboard-container">
         <div class="header">
-            <a class="back-link" onclick="window.location.href='/dashboard'">← На главную</a>
             <h1>Профиль</h1>
             <div class="user-info">
-                <span class="user-name" id="userName">Загрузка...</span>
+                <span class="user-name" id="userName"></span>
                 <span class="user-role" id="userRole"></span>
                 <button class="logout-btn" onclick="logout()">Выйти</button>
             </div>
         </div>
 
-        <div class="profile-page-wrapper">
-            <div class="profile-content-container">
-                <div class="profile-fixed-header">
-                    <h2>Личная информация</h2>
-                </div>
-                <div class="profile-scrollable-body">
-                    <div class="profile-form">
-                        <div class="avatar-section">
-                            <div class="avatar-circle" id="avatarCircle">?</div>
-                            <div class="avatar-info">
-                                <div class="avatar-name" id="profileFullName">Загрузка...</div>
-                                <div class="avatar-role" id="profileRole">—</div>
-                            </div>
-                            <button class="avatar-edit-btn" onclick="alert('Загрузка фото будет доступна позже')">
-                                 Изменить фото
-                            </button>
-                        </div>
+        <div class="dashboard-grid">
+            <div class="sidebar">
+                <ul class="sidebar-menu">
+                    <li class="sidebar-item" data-page="dashboard" onclick="window.location.href='/dashboard'">
+                        <span>Главная</span>
+                    </li>
+                    <li class="sidebar-item" data-page="projects" onclick="window.location.href='/projects'">
+                        <span>Проекты</span>
+                    </li>
+                    <li class="sidebar-item" data-page="tasks" onclick="window.location.href='/tasks'">
+                        <span>Мои задачи</span>
+                    </li>
+                    <li class="sidebar-item" data-page="calendar" onclick="window.location.href='/calendar'">
+                        <span>Календарь</span>
+                    </li>
+                    <li class="sidebar-item" data-page="analytics" id="analyticsMenuItem" style="display: none;">
+                        <span>Аналитика</span>
+                    </li>
+                    <li class="sidebar-item" data-page="notifications" onclick="window.location.href='/notifications'">
+                        <span>Уведомления</span>
+                        <span class="notification-badge" id="notifCount"></span>
+                    </li>
+                    <li class="sidebar-item active" data-page="profile">
+                        <span>Профиль</span>
+                    </li>
+                </ul>
+            </div>
 
-                        <div class="separator"></div>
-                        <div id="viewMode">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Email</label>
-                                    <input type="email" id="viewEmail" disabled value="—">
+            <div class="profile-page-wrapper">
+                <div class="profile-content-container">
+                    <div class="profile-fixed-header">
+                        <h2>Личная информация</h2>
+                    </div>
+                    <div class="profile-scrollable-body">
+                        <div class="profile-form">
+                            <div class="avatar-section">
+                                <div class="avatar-circle" id="avatarCircle">?</div>
+                                <div class="avatar-info">
+                                    <div class="avatar-name" id="profileFullName"></div>
+                                    <div class="avatar-role" id="profileRole">—</div>
                                 </div>
-                                <div class="form-group">
-                                    <label>Роль</label>
-                                    <input type="text" id="viewRoleDisplay" disabled value="—">
+                                <button class="avatar-edit-btn" onclick="alert('Загрузка фото будет доступна позже')">
+                                     Изменить фото
+                                </button>
+                            </div>
+
+                            <div class="separator"></div>
+                            <div id="viewMode">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Email</label>
+                                        <input type="email" id="viewEmail" disabled value="—">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Роль</label>
+                                        <input type="text" id="viewRoleDisplay" disabled value="—">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Полное имя</label>
+                                        <input type="text" id="viewFullName" disabled value="—">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>ID пользователя</label>
+                                        <input type="text" id="viewUserId" disabled value="—">
+                                    </div>
+                                </div>
+                                <div class="action-buttons">
+                                    <button class="edit-profile-btn" onclick="enableEditMode()">Редактировать профиль</button>
                                 </div>
                             </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Полное имя</label>
-                                    <input type="text" id="viewFullName" disabled value="—">
+                            <div id="editMode" style="display: none;">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Email</label>
+                                        <input type="email" id="editEmail" placeholder="email@example.com">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Полное имя</label>
+                                        <input type="text" id="editFullName" placeholder="ФИО">
+                                    </div>
                                 </div>
-                                <div class="form-group">
-                                    <label>ID пользователя</label>
-                                    <input type="text" id="viewUserId" disabled value="—">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Новый пароль</label>
+                                        <input type="password" id="editPassword" placeholder="Оставьте пустым, чтобы не менять">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Подтверждение пароля</label>
+                                        <input type="password" id="editPasswordConfirm" placeholder="Повторите пароль">
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="action-buttons">
-                                <button class="edit-profile-btn" onclick="enableEditMode()">Редактировать профиль</button>
-                            </div>
-                        </div>
-                        <div id="editMode" style="display: none;">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Email</label>
-                                    <input type="email" id="editEmail" placeholder="email@example.com">
+                                <div class="action-buttons">
+                                    <button class="save-profile-btn" onclick="saveProfile()">Сохранить</button>
+                                    <button class="cancel-edit-btn" onclick="disableEditMode()">Отмена</button>
                                 </div>
-                                <div class="form-group">
-                                    <label>Полное имя</label>
-                                    <input type="text" id="editFullName" placeholder="ФИО">
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Новый пароль</label>
-                                    <input type="password" id="editPassword" placeholder="Оставьте пустым, чтобы не менять">
-                                </div>
-                                <div class="form-group">
-                                    <label>Подтверждение пароля</label>
-                                    <input type="password" id="editPasswordConfirm" placeholder="Повторите пароль">
-                                </div>
-                            </div>
-                            <div class="action-buttons">
-                                <button class="save-profile-btn" onclick="saveProfile()">Сохранить</button>
-                                <button class="cancel-edit-btn" onclick="disableEditMode()">Отмена</button>
                             </div>
                         </div>
                     </div>

@@ -1,0 +1,20 @@
+server:
+  port: 50054
+  timeout: 30s
+
+database:
+  host: "notification_db"
+  port: 5432
+  name: "notification_db"
+  user: "notification_user"
+  password: "password"
+  ssl_mode: "disable"
+  max_open_conns: 10
+  max_idle_conns: 5
+  conn_max_lifetime: 30m
+
+rabbitmq:
+  url: "amqp://guest:guest@rabbitmq:5672/"
+
+logging:
+  level: "info"

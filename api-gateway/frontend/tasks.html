@@ -11,27 +11,57 @@
 <body class="dashboard-body">
     <div class="dashboard-container">
         <div class="header">
-            <a class="back-link" onclick="window.location.href='/dashboard'">← На главную</a>
             <h1>Мои задачи</h1>
             <div class="user-info">
-                <span class="user-name" id="userName">Загрузка...</span>
+                <span class="user-name" id="userName"></span>
                 <span class="user-role" id="userRole"></span>
                 <button class="logout-btn" onclick="logout()">Выйти</button>
             </div>
         </div>
 
-        <div class="tasks-container">
-            <div class="filter-tabs" id="filterTabs">
-                <div class="filter-tab active" data-status="">Все</div>
-                <div class="filter-tab" data-status="todo">К выполнению</div>
-                <div class="filter-tab" data-status="in_progress">В работе</div>
-                <div class="filter-tab" data-status="completed">Завершенные</div>
-                <div class="filter-tab" data-status="blocked">Заблокированные</div>
+        <div class="dashboard-grid">
+            <div class="sidebar">
+                <ul class="sidebar-menu">
+                    <li class="sidebar-item" data-page="dashboard" onclick="window.location.href='/dashboard'">
+                        <span>Главная</span>
+                    </li>
+                    <li class="sidebar-item" data-page="projects" onclick="window.location.href='/projects'">
+                        <span>Проекты</span>
+                    </li>
+                    <li class="sidebar-item active" data-page="tasks">
+                        <span>Мои задачи</span>
+                    </li>
+                    <li class="sidebar-item" data-page="calendar" onclick="window.location.href='/calendar'">
+                        <span>Календарь</span>
+                    </li>
+                    <li class="sidebar-item" data-page="analytics" id="analyticsMenuItem" style="display: none;">
+                        <span>Аналитика</span>
+                    </li>
+                    <li class="sidebar-item" data-page="notifications" onclick="window.location.href='/notifications'">
+                        <span>Уведомления</span>
+                        <span class="notification-badge" id="notifCount"></span>
+                    </li>
+                    <li class="sidebar-item" data-page="profile" onclick="window.location.href='/profile'">
+                        <span>Профиль</span>
+                    </li>
+                </ul>
             </div>
-            
-            <div class="content-card">
-                <div class="tasks-table">
-                    <div class="table-wrapper" id="tasksContainer">...</div>
+
+            <div class="main-content">
+                <div class="tasks-container">
+                    <div class="filter-tabs" id="filterTabs">
+                        <div class="filter-tab active" data-status="">Все</div>
+                        <div class="filter-tab" data-status="todo">К выполнению</div>
+                        <div class="filter-tab" data-status="in_progress">В работе</div>
+                        <div class="filter-tab" data-status="completed">Завершенные</div>
+                        <div class="filter-tab" data-status="blocked">Заблокированные</div>
+                    </div>
+                    
+                    <div class="content-card">
+                        <div class="tasks-table">
+                            <div class="table-wrapper" id="tasksContainer">...</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -60,7 +90,7 @@
                         ${t.description ? `<div class="task-description">${escapeHtml(t.description.substring(0, 80))}${t.description.length > 80 ? '...' : ''}</div>` : ''}
                     </td>
                     <td style="padding: 12px 16px;">
-                        <a href="#" onclick="goToProject('${t.project_id}'); return false;" class="project-link">К проекту →</a>
+                        <a href="#" onclick="goToProject('${t.project_id}'); return false;" class="project-link">К проекту</a>
                     </td>
                     <td style="padding: 12px 16px;">
                         <span class="status-badge ${status.class}">${status.text}</span>

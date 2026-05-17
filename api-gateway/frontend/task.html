@@ -11,7 +11,7 @@
 <body class="dashboard-body">
     <div class="dashboard-container">
         <div class="header">
-            <a href="/tasks" class="back-link">← Назад к задачам</a>
+            <a href="/tasks" class="back-link">Назад к задачам</a>
             <h1>Задача</h1>
             <div class="user-info">
                 <span class="user-name" id="userName"></span>
@@ -46,6 +46,43 @@
             <div class="modal-buttons">
                 <button class="cancel-btn" onclick="closeTaskModal()">Отмена</button>
                 <button class="save-btn" onclick="saveTask()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="createSubtaskModal" class="modal">
+        <div class="modal-content">
+            <h3>Создать подзадачу</h3>
+            <div class="form-group">
+                <label>Название</label>
+                <input type="text" id="subtaskTitle" placeholder="Название подзадачи">
+            </div>
+            <div class="form-group">
+                <label>Описание</label>
+                <textarea id="subtaskDescription" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Дедлайн</label>
+                <input type="date" id="subtaskDeadline">
+            </div>
+            <div class="form-group">
+                <label>Приоритет</label>
+                <select id="subtaskPriority">
+                    <option value="1">Низкий</option>
+                    <option value="2" selected>Средний</option>
+                    <option value="3">Высокий</option>
+                    <option value="4">Срочный</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Исполнитель</label>
+                <select id="subtaskAssigneeId">
+                    <option value="">Не назначен</option>
+                </select>
+            </div>
+            <div class="modal-buttons">
+                <button class="cancel-btn" onclick="closeSubtaskModal()">Отмена</button>
+                <button class="save-btn" onclick="createSubtask()">Создать</button>
             </div>
         </div>
     </div>
@@ -221,6 +258,57 @@
             document.getElementById('taskModal').classList.remove('active');
         }
 
+        async function openSubtaskModal() {
+            if (!currentTaskData || !currentTaskData.project_id) return;
+            document.getElementById('createSubtaskModal').classList.add('active');
+            document.getElementById('subtaskTitle').value = '';
+            document.getElementById('subtaskDescription').value = '';
+            document.getElementById('subtaskDeadline').value = '';
+            document.getElementById('subtaskPriority').value = '2';
+            const members = await fetchProjectMembers(currentTaskData.project_id);
+            fillUserSelect(document.getElementById('subtaskAssigneeId'), members, '');
+        }
+
+        function closeSubtaskModal() {
+            document.getElementById('createSubtaskModal').classList.remove('active');
+        }
+
+        async function createSubtask() {
+            if (!currentTaskData) return;
+            const title = document.getElementById('subtaskTitle').value.trim();
+            if (!title) {
+                alert('Введите название подзадачи');
+                return;
+            }
+            const priorityMap = { 1: 'low', 2: 'medium', 3: 'high', 4: 'urgent' };
+            const priorityStr = priorityMap[parseInt(document.getElementById('subtaskPriority').value, 10)] || 'medium';
+            const assigneeId = document.getElementById('subtaskAssigneeId').value || null;
+            const deadlineVal = document.getElementById('subtaskDeadline').value;
+            const taskData = {
+                title,
+                description: document.getElementById('subtaskDescription').value,
+                deadline: deadlineVal ? deadlineVal + 'T00:00:00Z' : null,
+                priority: priorityStr,
+                assigned_to: assigneeId,
+                parent_task_id: currentTaskData.id
+            };
+            try {
+                const response = await apiRequest(`/api/projects/${currentTaskData.project_id}/tasks`, {
+                    method: 'POST',
+                    body: JSON.stringify(taskData)
+                });
+                if (response.ok) {
+                    closeSubtaskModal();
+                    loadTask();
+                    alert('Подзадача создана');
+                } else {
+                    alert('Ошибка создания подзадачи');
+                }
+            } catch (err) {
+                alert('Ошибка соединения');
+            }
+        }
+
         async function loadTask() {
             const taskId = getTaskIdFromUrl();
             if (!taskId) {
@@ -272,16 +360,20 @@
 
                 const subtasks = await loadSubtasks(task.project_id, task.id);
                 let subtasksHtml = '';
-                if (subtasks.length > 0) {
+                const isRootTask = !task.parent_task_id || task.parent_task_id === '';
+                if (isRootTask) {
                     subtasksHtml = `
                         <div class="subtasks-section">
-                            <div class="subtasks-title">Подзадачи (${subtasks.length})</div>
+                            <div class="subtasks-header">
+                                <div class="subtasks-title">Подзадачи (${subtasks.length})</div>
+                                <button type="button" class="add-subtask-btn" onclick="openSubtaskModal()">+ Подзадача</button>
+                            </div>
                             <div class="subtasks-list">
                                 ${subtasks.map(sub => `
                                     <div class="subtask-item">
                                         <a href="/task/${sub.id}" class="subtask-link">${escapeHtml(sub.title)}</a>
                                     </div>
-                                `).join('')}
+                                `).join('') || '<div style="color:#64748b;padding:8px 0;">Подзадач пока нет</div>'}
                             </div>
                         </div>
                     `;

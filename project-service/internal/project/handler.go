@@ -150,3 +150,17 @@ func (h *Handler) GetUserByEmail(ctx context.Context, req *projectv1.GetUserByEm
 	log.Printf("[SUCCESS] GetUserByEmail: id=%s, duration=%v", user.Id, time.Since(start))
 	return user, nil
 }
+
+func (h *Handler) FindUsers(ctx context.Context, req *projectv1.FindUsersRequest) (*projectv1.FindUsersResponse, error) {
+	start := time.Now()
+	log.Printf("[REQUEST] FindUsers: query=%s", req.Query)
+
+	resp, err := h.service.FindUsers(ctx, req)
+	if err != nil {
+		log.Printf("[ERROR] FindUsers failed: %v", err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	log.Printf("[SUCCESS] FindUsers: count=%d, duration=%v", len(resp.Users), time.Since(start))
+	return resp, nil
+}

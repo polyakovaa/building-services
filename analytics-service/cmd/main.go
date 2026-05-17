@@ -43,6 +43,13 @@ func main() {
 	defer eevntConsumer.Close()
 	eevntConsumer.Start()
 
+	userConsumer, err := consumer.NewUserConsumer(repo, "amqp://guest:guest@rabbitmq:5672/")
+	if err != nil {
+		log.Fatalf("Failed to create user consumer: %v", err)
+	}
+	defer userConsumer.Close()
+	userConsumer.Start()
+
 	grpcServer := grpc.NewServer()
 
 	healthServer := health.NewServer()

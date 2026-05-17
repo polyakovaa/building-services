@@ -21,11 +21,67 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// PROJECTS: метрики только в рамках project_id / project_ids (и опционально department_id по задаче).
+// ORGANIZATION: срез по отделам компании — без фильтра по проектам, если gateway не передал project_ids (например, директор);
+//
+//	для остальных ролей gateway по-прежнему передаёт project_ids при необходимости.
+type AnalyticsSummaryScope int32
+
+const (
+	AnalyticsSummaryScope_ANALYTICS_SUMMARY_SCOPE_UNSPECIFIED  AnalyticsSummaryScope = 0
+	AnalyticsSummaryScope_ANALYTICS_SUMMARY_SCOPE_PROJECTS     AnalyticsSummaryScope = 1
+	AnalyticsSummaryScope_ANALYTICS_SUMMARY_SCOPE_ORGANIZATION AnalyticsSummaryScope = 2
+)
+
+// Enum value maps for AnalyticsSummaryScope.
+var (
+	AnalyticsSummaryScope_name = map[int32]string{
+		0: "ANALYTICS_SUMMARY_SCOPE_UNSPECIFIED",
+		1: "ANALYTICS_SUMMARY_SCOPE_PROJECTS",
+		2: "ANALYTICS_SUMMARY_SCOPE_ORGANIZATION",
+	}
+	AnalyticsSummaryScope_value = map[string]int32{
+		"ANALYTICS_SUMMARY_SCOPE_UNSPECIFIED":  0,
+		"ANALYTICS_SUMMARY_SCOPE_PROJECTS":     1,
+		"ANALYTICS_SUMMARY_SCOPE_ORGANIZATION": 2,
+	}
+)
+
+func (x AnalyticsSummaryScope) Enum() *AnalyticsSummaryScope {
+	p := new(AnalyticsSummaryScope)
+	*p = x
+	return p
+}
+
+func (x AnalyticsSummaryScope) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AnalyticsSummaryScope) Descriptor() protoreflect.EnumDescriptor {
+	return file_analytics_v1_analytics_proto_enumTypes[0].Descriptor()
+}
+
+func (AnalyticsSummaryScope) Type() protoreflect.EnumType {
+	return &file_analytics_v1_analytics_proto_enumTypes[0]
+}
+
+func (x AnalyticsSummaryScope) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use AnalyticsSummaryScope.Descriptor instead.
+func (AnalyticsSummaryScope) EnumDescriptor() ([]byte, []int) {
+	return file_analytics_v1_analytics_proto_rawDescGZIP(), []int{0}
+}
+
 type GetDashboardRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	DepartmentId  string                 `protobuf:"bytes,1,opt,name=department_id,json=departmentId,proto3" json:"department_id,omitempty"`
-	FromDate      string                 `protobuf:"bytes,2,opt,name=from_date,json=fromDate,proto3" json:"from_date,omitempty"`
-	ToDate        string                 `protobuf:"bytes,3,opt,name=to_date,json=toDate,proto3" json:"to_date,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	DepartmentId string                 `protobuf:"bytes,1,opt,name=department_id,json=departmentId,proto3" json:"department_id,omitempty"`
+	FromDate     string                 `protobuf:"bytes,2,opt,name=from_date,json=fromDate,proto3" json:"from_date,omitempty"`
+	ToDate       string                 `protobuf:"bytes,3,opt,name=to_date,json=toDate,proto3" json:"to_date,omitempty"`
+	ProjectId    string                 `protobuf:"bytes,4,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	// Comma-separated project UUIDs: membership scope (gateway sets for non-director).
+	ProjectIds    string `protobuf:"bytes,5,opt,name=project_ids,json=projectIds,proto3" json:"project_ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -77,6 +133,20 @@ func (x *GetDashboardRequest) GetFromDate() string {
 func (x *GetDashboardRequest) GetToDate() string {
 	if x != nil {
 		return x.ToDate
+	}
+	return ""
+}
+
+func (x *GetDashboardRequest) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
+	}
+	return ""
+}
+
+func (x *GetDashboardRequest) GetProjectIds() string {
+	if x != nil {
+		return x.ProjectIds
 	}
 	return ""
 }
@@ -177,6 +247,11 @@ type GetDepartmentWorkloadRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	DepartmentId  string                 `protobuf:"bytes,1,opt,name=department_id,json=departmentId,proto3" json:"department_id,omitempty"`
 	Days          int32                  `protobuf:"varint,2,opt,name=days,proto3" json:"days,omitempty"`
+	ProjectId     string                 `protobuf:"bytes,3,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	FromDate      string                 `protobuf:"bytes,4,opt,name=from_date,json=fromDate,proto3" json:"from_date,omitempty"`
+	ToDate        string                 `protobuf:"bytes,5,opt,name=to_date,json=toDate,proto3" json:"to_date,omitempty"`
+	ProjectIds    string                 `protobuf:"bytes,6,opt,name=project_ids,json=projectIds,proto3" json:"project_ids,omitempty"`
+	SummaryScope  AnalyticsSummaryScope  `protobuf:"varint,7,opt,name=summary_scope,json=summaryScope,proto3,enum=analytics.v1.AnalyticsSummaryScope" json:"summary_scope,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -223,6 +298,41 @@ func (x *GetDepartmentWorkloadRequest) GetDays() int32 {
 		return x.Days
 	}
 	return 0
+}
+
+func (x *GetDepartmentWorkloadRequest) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
+	}
+	return ""
+}
+
+func (x *GetDepartmentWorkloadRequest) GetFromDate() string {
+	if x != nil {
+		return x.FromDate
+	}
+	return ""
+}
+
+func (x *GetDepartmentWorkloadRequest) GetToDate() string {
+	if x != nil {
+		return x.ToDate
+	}
+	return ""
+}
+
+func (x *GetDepartmentWorkloadRequest) GetProjectIds() string {
+	if x != nil {
+		return x.ProjectIds
+	}
+	return ""
+}
+
+func (x *GetDepartmentWorkloadRequest) GetSummaryScope() AnalyticsSummaryScope {
+	if x != nil {
+		return x.SummaryScope
+	}
+	return AnalyticsSummaryScope_ANALYTICS_SUMMARY_SCOPE_UNSPECIFIED
 }
 
 type DepartmentWorkloadResponse struct {
@@ -373,6 +483,9 @@ type GetProjectTimelineRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ProjectId     string                 `protobuf:"bytes,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
 	DepartmentId  string                 `protobuf:"bytes,2,opt,name=department_id,json=departmentId,proto3" json:"department_id,omitempty"`
+	ProjectIds    string                 `protobuf:"bytes,3,opt,name=project_ids,json=projectIds,proto3" json:"project_ids,omitempty"`
+	FromDate      string                 `protobuf:"bytes,4,opt,name=from_date,json=fromDate,proto3" json:"from_date,omitempty"`
+	ToDate        string                 `protobuf:"bytes,5,opt,name=to_date,json=toDate,proto3" json:"to_date,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -417,6 +530,27 @@ func (x *GetProjectTimelineRequest) GetProjectId() string {
 func (x *GetProjectTimelineRequest) GetDepartmentId() string {
 	if x != nil {
 		return x.DepartmentId
+	}
+	return ""
+}
+
+func (x *GetProjectTimelineRequest) GetProjectIds() string {
+	if x != nil {
+		return x.ProjectIds
+	}
+	return ""
+}
+
+func (x *GetProjectTimelineRequest) GetFromDate() string {
+	if x != nil {
+		return x.FromDate
+	}
+	return ""
+}
+
+func (x *GetProjectTimelineRequest) GetToDate() string {
+	if x != nil {
+		return x.ToDate
 	}
 	return ""
 }
@@ -637,6 +771,12 @@ type GetTaskTrendsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	DepartmentId  string                 `protobuf:"bytes,1,opt,name=department_id,json=departmentId,proto3" json:"department_id,omitempty"`
 	Weeks         int32                  `protobuf:"varint,2,opt,name=weeks,proto3" json:"weeks,omitempty"`
+	ProjectId     string                 `protobuf:"bytes,3,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	ProjectIds    string                 `protobuf:"bytes,4,opt,name=project_ids,json=projectIds,proto3" json:"project_ids,omitempty"`
+	FromDate      string                 `protobuf:"bytes,5,opt,name=from_date,json=fromDate,proto3" json:"from_date,omitempty"`
+	ToDate        string                 `protobuf:"bytes,6,opt,name=to_date,json=toDate,proto3" json:"to_date,omitempty"`
+	GroupBy       string                 `protobuf:"bytes,7,opt,name=group_by,json=groupBy,proto3" json:"group_by,omitempty"`
+	SummaryScope  AnalyticsSummaryScope  `protobuf:"varint,8,opt,name=summary_scope,json=summaryScope,proto3,enum=analytics.v1.AnalyticsSummaryScope" json:"summary_scope,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -683,6 +823,48 @@ func (x *GetTaskTrendsRequest) GetWeeks() int32 {
 		return x.Weeks
 	}
 	return 0
+}
+
+func (x *GetTaskTrendsRequest) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
+	}
+	return ""
+}
+
+func (x *GetTaskTrendsRequest) GetProjectIds() string {
+	if x != nil {
+		return x.ProjectIds
+	}
+	return ""
+}
+
+func (x *GetTaskTrendsRequest) GetFromDate() string {
+	if x != nil {
+		return x.FromDate
+	}
+	return ""
+}
+
+func (x *GetTaskTrendsRequest) GetToDate() string {
+	if x != nil {
+		return x.ToDate
+	}
+	return ""
+}
+
+func (x *GetTaskTrendsRequest) GetGroupBy() string {
+	if x != nil {
+		return x.GroupBy
+	}
+	return ""
+}
+
+func (x *GetTaskTrendsRequest) GetSummaryScope() AnalyticsSummaryScope {
+	if x != nil {
+		return x.SummaryScope
+	}
+	return AnalyticsSummaryScope_ANALYTICS_SUMMARY_SCOPE_UNSPECIFIED
 }
 
 type TaskTrendsResponse struct {
@@ -818,6 +1000,8 @@ type GetEmployeeProductivityRequest struct {
 	DepartmentId  string                 `protobuf:"bytes,1,opt,name=department_id,json=departmentId,proto3" json:"department_id,omitempty"`
 	FromDate      string                 `protobuf:"bytes,2,opt,name=from_date,json=fromDate,proto3" json:"from_date,omitempty"`
 	ToDate        string                 `protobuf:"bytes,3,opt,name=to_date,json=toDate,proto3" json:"to_date,omitempty"`
+	ProjectId     string                 `protobuf:"bytes,4,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	ProjectIds    string                 `protobuf:"bytes,5,opt,name=project_ids,json=projectIds,proto3" json:"project_ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -869,6 +1053,20 @@ func (x *GetEmployeeProductivityRequest) GetFromDate() string {
 func (x *GetEmployeeProductivityRequest) GetToDate() string {
 	if x != nil {
 		return x.ToDate
+	}
+	return ""
+}
+
+func (x *GetEmployeeProductivityRequest) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
+	}
+	return ""
+}
+
+func (x *GetEmployeeProductivityRequest) GetProjectIds() string {
+	if x != nil {
+		return x.ProjectIds
 	}
 	return ""
 }
@@ -1021,11 +1219,15 @@ var File_analytics_v1_analytics_proto protoreflect.FileDescriptor
 
 const file_analytics_v1_analytics_proto_rawDesc = "" +
 	"\n" +
-	"\x1canalytics/v1/analytics.proto\x12\fanalytics.v1\"p\n" +
+	"\x1canalytics/v1/analytics.proto\x12\fanalytics.v1\"\xb0\x01\n" +
 	"\x13GetDashboardRequest\x12#\n" +
 	"\rdepartment_id\x18\x01 \x01(\tR\fdepartmentId\x12\x1b\n" +
 	"\tfrom_date\x18\x02 \x01(\tR\bfromDate\x12\x17\n" +
-	"\ato_date\x18\x03 \x01(\tR\x06toDate\"\xde\x02\n" +
+	"\ato_date\x18\x03 \x01(\tR\x06toDate\x12\x1d\n" +
+	"\n" +
+	"project_id\x18\x04 \x01(\tR\tprojectId\x12\x1f\n" +
+	"\vproject_ids\x18\x05 \x01(\tR\n" +
+	"projectIds\"\xde\x02\n" +
 	"\x11DashboardResponse\x12'\n" +
 	"\x0factive_projects\x18\x01 \x01(\x05R\x0eactiveProjects\x12\x1f\n" +
 	"\vtotal_tasks\x18\x02 \x01(\x05R\n" +
@@ -1035,10 +1237,17 @@ const file_analytics_v1_analytics_proto_rawDesc = "" +
 	"\x13department_workload\x18\x05 \x03(\v2 .analytics.v1.DepartmentWorkloadR\x12departmentWorkload\x12<\n" +
 	"\fweekly_trend\x18\a \x03(\v2\x19.analytics.v1.WeeklyTrendR\vweeklyTrend\x12 \n" +
 	"\fon_time_rate\x18\b \x01(\x01R\n" +
-	"onTimeRate\"W\n" +
+	"onTimeRate\"\x97\x02\n" +
 	"\x1cGetDepartmentWorkloadRequest\x12#\n" +
 	"\rdepartment_id\x18\x01 \x01(\tR\fdepartmentId\x12\x12\n" +
-	"\x04days\x18\x02 \x01(\x05R\x04days\"\\\n" +
+	"\x04days\x18\x02 \x01(\x05R\x04days\x12\x1d\n" +
+	"\n" +
+	"project_id\x18\x03 \x01(\tR\tprojectId\x12\x1b\n" +
+	"\tfrom_date\x18\x04 \x01(\tR\bfromDate\x12\x17\n" +
+	"\ato_date\x18\x05 \x01(\tR\x06toDate\x12\x1f\n" +
+	"\vproject_ids\x18\x06 \x01(\tR\n" +
+	"projectIds\x12H\n" +
+	"\rsummary_scope\x18\a \x01(\x0e2#.analytics.v1.AnalyticsSummaryScopeR\fsummaryScope\"\\\n" +
 	"\x1aDepartmentWorkloadResponse\x12>\n" +
 	"\tworkloads\x18\x01 \x03(\v2 .analytics.v1.DepartmentWorkloadR\tworkloads\"\x98\x02\n" +
 	"\x12DepartmentWorkload\x12#\n" +
@@ -1050,11 +1259,15 @@ const file_analytics_v1_analytics_proto_rawDesc = "" +
 	"\x0eavg_cycle_time\x18\x06 \x01(\x01R\favgCycleTime\x12\"\n" +
 	"\fproductivity\x18\a \x01(\x01R\fproductivity\x12 \n" +
 	"\fon_time_rate\x18\b \x01(\x01R\n" +
-	"onTimeRate\"_\n" +
+	"onTimeRate\"\xb6\x01\n" +
 	"\x19GetProjectTimelineRequest\x12\x1d\n" +
 	"\n" +
 	"project_id\x18\x01 \x01(\tR\tprojectId\x12#\n" +
-	"\rdepartment_id\x18\x02 \x01(\tR\fdepartmentId\"[\n" +
+	"\rdepartment_id\x18\x02 \x01(\tR\fdepartmentId\x12\x1f\n" +
+	"\vproject_ids\x18\x03 \x01(\tR\n" +
+	"projectIds\x12\x1b\n" +
+	"\tfrom_date\x18\x04 \x01(\tR\bfromDate\x12\x17\n" +
+	"\ato_date\x18\x05 \x01(\tR\x06toDate\"[\n" +
 	"\x17ProjectTimelineResponse\x12@\n" +
 	"\bprojects\x18\x01 \x03(\v2$.analytics.v1.ProjectTimelineControlR\bprojects\"\xd5\x02\n" +
 	"\x16ProjectTimelineControl\x12\x1d\n" +
@@ -1073,10 +1286,18 @@ const file_analytics_v1_analytics_proto_rawDesc = "" +
 	"\rdepartment_id\x18\x01 \x01(\tR\fdepartmentId\x12'\n" +
 	"\x0fdepartment_name\x18\x02 \x01(\tR\x0edepartmentName\x12#\n" +
 	"\roverdue_tasks\x18\x03 \x01(\x05R\foverdueTasks\x12$\n" +
-	"\x0eavg_delay_days\x18\x04 \x01(\x01R\favgDelayDays\"Q\n" +
+	"\x0eavg_delay_days\x18\x04 \x01(\x01R\favgDelayDays\"\xac\x02\n" +
 	"\x14GetTaskTrendsRequest\x12#\n" +
 	"\rdepartment_id\x18\x01 \x01(\tR\fdepartmentId\x12\x14\n" +
-	"\x05weeks\x18\x02 \x01(\x05R\x05weeks\"G\n" +
+	"\x05weeks\x18\x02 \x01(\x05R\x05weeks\x12\x1d\n" +
+	"\n" +
+	"project_id\x18\x03 \x01(\tR\tprojectId\x12\x1f\n" +
+	"\vproject_ids\x18\x04 \x01(\tR\n" +
+	"projectIds\x12\x1b\n" +
+	"\tfrom_date\x18\x05 \x01(\tR\bfromDate\x12\x17\n" +
+	"\ato_date\x18\x06 \x01(\tR\x06toDate\x12\x19\n" +
+	"\bgroup_by\x18\a \x01(\tR\agroupBy\x12H\n" +
+	"\rsummary_scope\x18\b \x01(\x0e2#.analytics.v1.AnalyticsSummaryScopeR\fsummaryScope\"G\n" +
 	"\x12TaskTrendsResponse\x121\n" +
 	"\x06trends\x18\x01 \x03(\v2\x19.analytics.v1.WeeklyTrendR\x06trends\"\xbe\x01\n" +
 	"\vWeeklyTrend\x12\x12\n" +
@@ -1086,11 +1307,15 @@ const file_analytics_v1_analytics_proto_rawDesc = "" +
 	"\aoverdue\x18\x04 \x01(\x05R\aoverdue\x12'\n" +
 	"\x0fcompletion_rate\x18\x05 \x01(\x01R\x0ecompletionRate\x12 \n" +
 	"\fon_time_rate\x18\x06 \x01(\x01R\n" +
-	"onTimeRate\"{\n" +
+	"onTimeRate\"\xbb\x01\n" +
 	"\x1eGetEmployeeProductivityRequest\x12#\n" +
 	"\rdepartment_id\x18\x01 \x01(\tR\fdepartmentId\x12\x1b\n" +
 	"\tfrom_date\x18\x02 \x01(\tR\bfromDate\x12\x17\n" +
-	"\ato_date\x18\x03 \x01(\tR\x06toDate\"`\n" +
+	"\ato_date\x18\x03 \x01(\tR\x06toDate\x12\x1d\n" +
+	"\n" +
+	"project_id\x18\x04 \x01(\tR\tprojectId\x12\x1f\n" +
+	"\vproject_ids\x18\x05 \x01(\tR\n" +
+	"projectIds\"`\n" +
 	"\x1cEmployeeProductivityResponse\x12@\n" +
 	"\temployees\x18\x01 \x03(\v2\".analytics.v1.EmployeeProductivityR\temployees\"\xa1\x02\n" +
 	"\x14EmployeeProductivity\x12\x17\n" +
@@ -1102,7 +1327,11 @@ const file_analytics_v1_analytics_proto_rawDesc = "" +
 	"\x0eavg_cycle_time\x18\x06 \x01(\x01R\favgCycleTime\x12'\n" +
 	"\x0fcompletion_rate\x18\a \x01(\x01R\x0ecompletionRate\x12 \n" +
 	"\fon_time_rate\x18\b \x01(\x01R\n" +
-	"onTimeRate2\x8e\x04\n" +
+	"onTimeRate*\x90\x01\n" +
+	"\x15AnalyticsSummaryScope\x12'\n" +
+	"#ANALYTICS_SUMMARY_SCOPE_UNSPECIFIED\x10\x00\x12$\n" +
+	" ANALYTICS_SUMMARY_SCOPE_PROJECTS\x10\x01\x12(\n" +
+	"$ANALYTICS_SUMMARY_SCOPE_ORGANIZATION\x10\x022\x8e\x04\n" +
 	"\x10AnalyticsService\x12R\n" +
 	"\fGetDashboard\x12!.analytics.v1.GetDashboardRequest\x1a\x1f.analytics.v1.DashboardResponse\x12m\n" +
 	"\x15GetDepartmentWorkload\x12*.analytics.v1.GetDepartmentWorkloadRequest\x1a(.analytics.v1.DepartmentWorkloadResponse\x12k\n" +
@@ -1122,47 +1351,51 @@ func file_analytics_v1_analytics_proto_rawDescGZIP() []byte {
 	return file_analytics_v1_analytics_proto_rawDescData
 }
 
+var file_analytics_v1_analytics_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_analytics_v1_analytics_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_analytics_v1_analytics_proto_goTypes = []any{
-	(*GetDashboardRequest)(nil),            // 0: analytics.v1.GetDashboardRequest
-	(*DashboardResponse)(nil),              // 1: analytics.v1.DashboardResponse
-	(*GetDepartmentWorkloadRequest)(nil),   // 2: analytics.v1.GetDepartmentWorkloadRequest
-	(*DepartmentWorkloadResponse)(nil),     // 3: analytics.v1.DepartmentWorkloadResponse
-	(*DepartmentWorkload)(nil),             // 4: analytics.v1.DepartmentWorkload
-	(*GetProjectTimelineRequest)(nil),      // 5: analytics.v1.GetProjectTimelineRequest
-	(*ProjectTimelineResponse)(nil),        // 6: analytics.v1.ProjectTimelineResponse
-	(*ProjectTimelineControl)(nil),         // 7: analytics.v1.ProjectTimelineControl
-	(*DepartmentDelay)(nil),                // 8: analytics.v1.DepartmentDelay
-	(*GetTaskTrendsRequest)(nil),           // 9: analytics.v1.GetTaskTrendsRequest
-	(*TaskTrendsResponse)(nil),             // 10: analytics.v1.TaskTrendsResponse
-	(*WeeklyTrend)(nil),                    // 11: analytics.v1.WeeklyTrend
-	(*GetEmployeeProductivityRequest)(nil), // 12: analytics.v1.GetEmployeeProductivityRequest
-	(*EmployeeProductivityResponse)(nil),   // 13: analytics.v1.EmployeeProductivityResponse
-	(*EmployeeProductivity)(nil),           // 14: analytics.v1.EmployeeProductivity
+	(AnalyticsSummaryScope)(0),             // 0: analytics.v1.AnalyticsSummaryScope
+	(*GetDashboardRequest)(nil),            // 1: analytics.v1.GetDashboardRequest
+	(*DashboardResponse)(nil),              // 2: analytics.v1.DashboardResponse
+	(*GetDepartmentWorkloadRequest)(nil),   // 3: analytics.v1.GetDepartmentWorkloadRequest
+	(*DepartmentWorkloadResponse)(nil),     // 4: analytics.v1.DepartmentWorkloadResponse
+	(*DepartmentWorkload)(nil),             // 5: analytics.v1.DepartmentWorkload
+	(*GetProjectTimelineRequest)(nil),      // 6: analytics.v1.GetProjectTimelineRequest
+	(*ProjectTimelineResponse)(nil),        // 7: analytics.v1.ProjectTimelineResponse
+	(*ProjectTimelineControl)(nil),         // 8: analytics.v1.ProjectTimelineControl
+	(*DepartmentDelay)(nil),                // 9: analytics.v1.DepartmentDelay
+	(*GetTaskTrendsRequest)(nil),           // 10: analytics.v1.GetTaskTrendsRequest
+	(*TaskTrendsResponse)(nil),             // 11: analytics.v1.TaskTrendsResponse
+	(*WeeklyTrend)(nil),                    // 12: analytics.v1.WeeklyTrend
+	(*GetEmployeeProductivityRequest)(nil), // 13: analytics.v1.GetEmployeeProductivityRequest
+	(*EmployeeProductivityResponse)(nil),   // 14: analytics.v1.EmployeeProductivityResponse
+	(*EmployeeProductivity)(nil),           // 15: analytics.v1.EmployeeProductivity
 }
 var file_analytics_v1_analytics_proto_depIdxs = []int32{
-	4,  // 0: analytics.v1.DashboardResponse.department_workload:type_name -> analytics.v1.DepartmentWorkload
-	11, // 1: analytics.v1.DashboardResponse.weekly_trend:type_name -> analytics.v1.WeeklyTrend
-	4,  // 2: analytics.v1.DepartmentWorkloadResponse.workloads:type_name -> analytics.v1.DepartmentWorkload
-	7,  // 3: analytics.v1.ProjectTimelineResponse.projects:type_name -> analytics.v1.ProjectTimelineControl
-	8,  // 4: analytics.v1.ProjectTimelineControl.departments:type_name -> analytics.v1.DepartmentDelay
-	11, // 5: analytics.v1.TaskTrendsResponse.trends:type_name -> analytics.v1.WeeklyTrend
-	14, // 6: analytics.v1.EmployeeProductivityResponse.employees:type_name -> analytics.v1.EmployeeProductivity
-	0,  // 7: analytics.v1.AnalyticsService.GetDashboard:input_type -> analytics.v1.GetDashboardRequest
-	2,  // 8: analytics.v1.AnalyticsService.GetDepartmentWorkload:input_type -> analytics.v1.GetDepartmentWorkloadRequest
-	5,  // 9: analytics.v1.AnalyticsService.GetProjectTimelineControl:input_type -> analytics.v1.GetProjectTimelineRequest
-	9,  // 10: analytics.v1.AnalyticsService.GetTaskTrends:input_type -> analytics.v1.GetTaskTrendsRequest
-	12, // 11: analytics.v1.AnalyticsService.GetEmployeeProductivity:input_type -> analytics.v1.GetEmployeeProductivityRequest
-	1,  // 12: analytics.v1.AnalyticsService.GetDashboard:output_type -> analytics.v1.DashboardResponse
-	3,  // 13: analytics.v1.AnalyticsService.GetDepartmentWorkload:output_type -> analytics.v1.DepartmentWorkloadResponse
-	6,  // 14: analytics.v1.AnalyticsService.GetProjectTimelineControl:output_type -> analytics.v1.ProjectTimelineResponse
-	10, // 15: analytics.v1.AnalyticsService.GetTaskTrends:output_type -> analytics.v1.TaskTrendsResponse
-	13, // 16: analytics.v1.AnalyticsService.GetEmployeeProductivity:output_type -> analytics.v1.EmployeeProductivityResponse
-	12, // [12:17] is the sub-list for method output_type
-	7,  // [7:12] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	5,  // 0: analytics.v1.DashboardResponse.department_workload:type_name -> analytics.v1.DepartmentWorkload
+	12, // 1: analytics.v1.DashboardResponse.weekly_trend:type_name -> analytics.v1.WeeklyTrend
+	0,  // 2: analytics.v1.GetDepartmentWorkloadRequest.summary_scope:type_name -> analytics.v1.AnalyticsSummaryScope
+	5,  // 3: analytics.v1.DepartmentWorkloadResponse.workloads:type_name -> analytics.v1.DepartmentWorkload
+	8,  // 4: analytics.v1.ProjectTimelineResponse.projects:type_name -> analytics.v1.ProjectTimelineControl
+	9,  // 5: analytics.v1.ProjectTimelineControl.departments:type_name -> analytics.v1.DepartmentDelay
+	0,  // 6: analytics.v1.GetTaskTrendsRequest.summary_scope:type_name -> analytics.v1.AnalyticsSummaryScope
+	12, // 7: analytics.v1.TaskTrendsResponse.trends:type_name -> analytics.v1.WeeklyTrend
+	15, // 8: analytics.v1.EmployeeProductivityResponse.employees:type_name -> analytics.v1.EmployeeProductivity
+	1,  // 9: analytics.v1.AnalyticsService.GetDashboard:input_type -> analytics.v1.GetDashboardRequest
+	3,  // 10: analytics.v1.AnalyticsService.GetDepartmentWorkload:input_type -> analytics.v1.GetDepartmentWorkloadRequest
+	6,  // 11: analytics.v1.AnalyticsService.GetProjectTimelineControl:input_type -> analytics.v1.GetProjectTimelineRequest
+	10, // 12: analytics.v1.AnalyticsService.GetTaskTrends:input_type -> analytics.v1.GetTaskTrendsRequest
+	13, // 13: analytics.v1.AnalyticsService.GetEmployeeProductivity:input_type -> analytics.v1.GetEmployeeProductivityRequest
+	2,  // 14: analytics.v1.AnalyticsService.GetDashboard:output_type -> analytics.v1.DashboardResponse
+	4,  // 15: analytics.v1.AnalyticsService.GetDepartmentWorkload:output_type -> analytics.v1.DepartmentWorkloadResponse
+	7,  // 16: analytics.v1.AnalyticsService.GetProjectTimelineControl:output_type -> analytics.v1.ProjectTimelineResponse
+	11, // 17: analytics.v1.AnalyticsService.GetTaskTrends:output_type -> analytics.v1.TaskTrendsResponse
+	14, // 18: analytics.v1.AnalyticsService.GetEmployeeProductivity:output_type -> analytics.v1.EmployeeProductivityResponse
+	14, // [14:19] is the sub-list for method output_type
+	9,  // [9:14] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_analytics_v1_analytics_proto_init() }
@@ -1175,13 +1408,14 @@ func file_analytics_v1_analytics_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_analytics_v1_analytics_proto_rawDesc), len(file_analytics_v1_analytics_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_analytics_v1_analytics_proto_goTypes,
 		DependencyIndexes: file_analytics_v1_analytics_proto_depIdxs,
+		EnumInfos:         file_analytics_v1_analytics_proto_enumTypes,
 		MessageInfos:      file_analytics_v1_analytics_proto_msgTypes,
 	}.Build()
 	File_analytics_v1_analytics_proto = out.File

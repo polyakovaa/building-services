@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Аналитика</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/analytics.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="/static/app.js"></script>
+    <script src="/static/analytics.js"></script>
+</head>
+<body class="dashboard-body">
+    <div class="dashboard-container">
+        <div class="header">
+            <h1>Аналитика</h1>
+            <div class="user-info">
+                <span class="user-name" id="userName"></span>
+                <span class="user-role" id="userRole"></span>
+                <button class="logout-btn" onclick="logout()">Выйти</button>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="sidebar">
+                <ul class="sidebar-menu">
+                    <li class="sidebar-item" data-page="dashboard" onclick="window.location.href='/dashboard'">
+                        <span>Главная</span>
+                    </li>
+                    <li class="sidebar-item" data-page="projects" onclick="window.location.href='/projects'">
+                        <span>Проекты</span>
+                    </li>
+                    <li class="sidebar-item" data-page="tasks" onclick="window.location.href='/tasks'">
+                        <span>Мои задачи</span>
+                    </li>
+                    <li class="sidebar-item" data-page="calendar" onclick="window.location.href='/calendar'">
+                        <span>Календарь</span>
+                    </li>
+                    <li class="sidebar-item active" data-page="analytics">
+                        <span>Аналитика</span>
+                    </li>
+                    <li class="sidebar-item" data-page="notifications" onclick="window.location.href='/notifications'">
+                        <span>Уведомления</span>
+                        <span class="notification-badge" id="notifCount"></span>
+                    </li>
+                    <li class="sidebar-item" data-page="profile" onclick="window.location.href='/profile'">
+                        <span>Профиль</span>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="main-content" id="mainContent">
+                <!-- Фильтры -->
+                <div class="analytics-filters">
+                    <div class="filter-tabs">
+                        <button class="filter-tab active" data-period="week">Неделя</button>
+                        <button class="filter-tab" data-period="month">Месяц</button>
+                        <button class="filter-tab" data-period="quarter">Квартал</button>
+                    </div>
+                </div>
+
+                <!-- Основные метрики -->
+                <div class="analytics-section">
+                    <h2 class="section-title">Основные показатели</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card analytics-card">
+                            <h3>Активные проекты</h3>
+                            <div class="stat-number" id="activeProjects">0</div>
+                        </div>
+                        <div class="stat-card analytics-card">
+                            <h3>Всего задач</h3>
+                            <div class="stat-number" id="totalTasks">0</div>
+                        </div>
+                        <div class="stat-card analytics-card">
+                            <h3>Просроченные</h3>
+                            <div class="stat-number" id="overdueTasks">0</div>
+                        </div>
+                        <div class="stat-card analytics-card">
+                            <h3>Выполнение</h3>
+                            <div class="stat-number" id="completionRate">0%</div>
+                        </div>
+                        <div class="stat-card analytics-card">
+                            <h3>Своевременно</h3>
+                            <div class="stat-number" id="onTimeRate">0%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Графики и тренды -->
+                <div class="analytics-charts">
+                    <div class="chart-container">
+                        <h3 class="chart-title">Тренды задач</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="trendsChart"></canvas>
+                            <div class="loading">Загрузка данных...</div>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <h3 class="chart-title">Нагрузка отделов</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="workloadChart"></canvas>
+                            <div class="loading">Загрузка данных...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Таблицы с детальными данными -->
+                <div class="analytics-tables">
+                    <div class="table-section">
+                        <h3 class="section-title">Продуктивность сотрудников</h3>
+                        <div class="table-wrapper">
+                            <table class="analytics-table" id="productivityTable">
+                                <thead>
+                                    <tr>
+                                        <th>Сотрудник</th>
+                                        <th>Выполнено задач</th>
+                                        <th>Просрочено</th>
+                                        <th>Среднее время</th>
+                                        <th>Эффективность</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="5" class="loading">Загрузка данных...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="table-section">
+                        <h3 class="section-title">Таймлайн проектов</h3>
+                        <div class="table-wrapper">
+                            <table class="analytics-table" id="timelineTable">
+                                <thead>
+                                    <tr>
+                                        <th>Проект</th>
+                                        <th>Всего задач</th>
+                                        <th>Выполнено вовремя</th>
+                                        <th>Просрочено</th>
+                                        <th>Своевременность</th>
+                                        <th>Средняя задержка</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="6" class="loading">Загрузка данных...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Нагрузка отделов -->
+                <div class="analytics-section">
+                    <h2 class="section-title">Детальная нагрузка отделов</h2>
+                    <div class="department-grid" id="departmentGrid">
+                        <div class="loading">Загрузка данных...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Инициализация страницы аналитики
+        document.addEventListener('DOMContentLoaded', async function() {
+            await loadUserInfo();
+            await initializeAnalytics();
+        });
+    </script>
+</body>
+</html>

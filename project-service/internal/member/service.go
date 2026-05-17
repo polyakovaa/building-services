@@ -80,11 +80,13 @@ func (s *Service) AddMember(ctx context.Context, req *projectv1.AddMemberRequest
 
 	actorUserID, err := util.GetFromContext(ctx, "user_id")
 	if err == nil && s.events != nil {
+		projectName := s.projectName(ctx, member.ProjectId)
 		event := map[string]interface{}{
 			"event_type":    "project.member_added",
 			"occurred_at":   time.Now().UTC().Format(time.RFC3339Nano),
 			"actor_user_id": actorUserID,
 			"project_id":    member.ProjectId,
+			"project_name":  projectName,
 			"user_id":       member.UserId,
 			"department_id": member.DepartmentId,
 		}
@@ -94,6 +96,18 @@ func (s *Service) AddMember(ctx context.Context, req *projectv1.AddMemberRequest
 	}
 
 	return member, nil
+}
+
+func (s *Service) projectName(ctx context.Context, projectID string) string {
+	if s.projectRepo == nil || projectID == "" {
+		return ""
+	}
+	project, err := s.projectRepo.FindByID(ctx, projectID)
+	if err != nil {
+		log.Printf("failed to enrich member event with project name: %v", err)
+		return ""
+	}
+	return project.Name
 }
 
 func (s *Service) UpdateMember(ctx context.Context, req *projectv1.UpdateMemberRequest) (*projectv1.ProjectMember, error) {

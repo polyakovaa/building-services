@@ -71,8 +71,7 @@ func NewEventConsumer(repo *repository.Repository, svc *service.Service, amqpURL
 	eventTypes := []string{
 		"task.*",
 		"project.created",
-		"project.member_added",
-		"project.member_removed",
+		"project.status_changed",
 	}
 	for _, routingKey := range eventTypes {
 		err = ch.QueueBind(q.Name, routingKey, "project.events", false, nil)
@@ -90,18 +89,6 @@ func NewEventConsumer(repo *repository.Repository, svc *service.Service, amqpURL
 		service: svc,
 		conn:    conn,
 	}, nil
-}
-
-type RawEvent struct {
-	ID           string
-	EventType    string
-	ProjectID    string
-	TaskID       string
-	UserID       string
-	DepartmentID string
-	ActorUserID  string
-	OccurredAt   time.Time
-	Payload      []byte
 }
 
 func (c *EventConsumer) Start() error {
@@ -139,38 +126,31 @@ func (c *EventConsumer) handleMessage(body []byte) {
 
 	rawEvent := repository.RawEvent{
 		EventType:  eventType,
-		OccurredAt: time.Now(),
+		OccurredAt: parseOccurredAt(event),
 		Payload:    body,
 	}
 
 	if v, ok := event["project_id"].(string); ok {
 		rawEvent.ProjectID = v
-		log.Printf("   project_id: %s", v)
 	}
 	if v, ok := event["task_id"].(string); ok {
 		rawEvent.TaskID = v
-		log.Printf("   task_id: %s", v)
 	}
 	if v, ok := event["user_id"].(string); ok {
 		rawEvent.UserID = v
-		log.Printf("   user_id: %s", v)
 	}
 	if v, ok := event["department_id"].(string); ok {
 		rawEvent.DepartmentID = v
-		log.Printf("   department_id: %s", v)
 	}
 	if v, ok := event["actor_user_id"].(string); ok {
 		rawEvent.ActorUserID = v
-		log.Printf("actor_user_id: %s", v)
 	}
 
-	log.Printf("About to save raw event to database...")
 	if err := c.repo.SaveRawEvent(rawEvent); err != nil {
 		log.Printf("Failed to save raw event: %v", err)
 		return
 	}
 	log.Printf("Raw event saved to database")
-
 	if err := c.service.ProcessEvent(eventType, event); err != nil {
 		log.Printf("Failed to process event: %v", err)
 		return
@@ -178,21 +158,32 @@ func (c *EventConsumer) handleMessage(body []byte) {
 	log.Printf("Event processed successfully")
 }
 
+func parseOccurredAt(event map[string]interface{}) time.Time {
+	s, _ := event["occurred_at"].(string)
+	if s == "" {
+		return time.Now()
+	}
+	if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
+		return t
+	}
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return t
+	}
+	return time.Now()
+}
+
 func (c *EventConsumer) Close() error {
 	var errs []error
-
 	if c.channel != nil {
 		if err := c.channel.Close(); err != nil {
 			errs = append(errs, err)
 		}
 	}
-
 	if c.conn != nil {
 		if err := c.conn.Close(); err != nil {
 			errs = append(errs, err)
 		}
 	}
-
 	if len(errs) > 0 {
 		return fmt.Errorf("close errors: %v", errs)
 	}

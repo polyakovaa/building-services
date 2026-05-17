@@ -66,10 +66,14 @@ func (s *Service) CreateTask(ctx context.Context, req *projectv1.CreateTaskReque
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user_id: %w", err)
 	}
+	log.Printf("[DEBUG] CreateTask: userID=%s, projectID=%s", userID, req.ProjectId)
+
 	ok, err := s.authz.Check(ctx, userID, authz.ResourceTask, req.ProjectId, authz.ActionCreate)
 	if err != nil || !ok {
+		log.Printf("[DEBUG] CreateTask: permission denied for user %s on project %s: ok=%v, err=%v", userID, req.ProjectId, ok, err)
 		return nil, errs.ErrNoPermission
 	}
+	log.Printf("[DEBUG] CreateTask: permission granted for user %s on project %s", userID, req.ProjectId)
 
 	if req.AssignedTo == "" {
 		return nil, fmt.Errorf("%w:assigned name required", errs.ErrInvalidInput)
@@ -97,23 +101,22 @@ func (s *Service) CreateTask(ctx context.Context, req *projectv1.CreateTaskReque
 		return nil, fmt.Errorf("failed to create task in service: %w", err)
 	}
 
-	// Publish task.created event
 	if s.events != nil {
-		assigneeDept := ""
-		if s.userRepo != nil && task.AssignedTo != "" {
-			if u, err := s.userRepo.FindByID(ctx, task.AssignedTo); err == nil && u.DepartmentID != nil {
-				assigneeDept = *u.DepartmentID
-			}
-		}
+		assigneeDept, assigneeName, assigneeEmail := s.assigneeProfile(ctx, task.AssignedTo)
+		projectName := s.projectName(ctx, task.ProjectId)
 		event := map[string]interface{}{
-			"event_type":    "task.created",
-			"occurred_at":   time.Now().UTC().Format(time.RFC3339Nano),
-			"actor_user_id": userID,
-			"task_id":       task.Id,
-			"project_id":    task.ProjectId,
-			"user_id":       task.AssignedTo,
-			"department_id": assigneeDept,
+			"event_type":         "task.created",
+			"occurred_at":        time.Now().UTC().Format(time.RFC3339Nano),
+			"actor_user_id":      userID,
+			"task_id":            task.Id,
+			"project_id":         task.ProjectId,
+			"project_name":       projectName,
+			"user_id":            task.AssignedTo,
+			"department_id":      assigneeDept,
+			"assignee_full_name": assigneeName,
+			"assignee_email":     assigneeEmail,
 			"title":         task.Title,
+			"task_title":    task.Title,
 			"description":   task.Description,
 			"status":        int32(task.Status),
 			"priority":      int32(task.Priority),
@@ -193,20 +196,20 @@ func (s *Service) UpdateTask(ctx context.Context, req *projectv1.UpdateTaskReque
 	}
 
 	if s.events != nil && deadlineChanged(existing.Deadline, updatedTask.Deadline) {
-		assigneeDept := ""
-		if s.userRepo != nil && updatedTask.AssignedTo != "" {
-			if u, err := s.userRepo.FindByID(ctx, updatedTask.AssignedTo); err == nil && u.DepartmentID != nil {
-				assigneeDept = *u.DepartmentID
-			}
-		}
+		assigneeDept, assigneeName, assigneeEmail := s.assigneeProfile(ctx, updatedTask.AssignedTo)
+		projectName := s.projectName(ctx, existing.ProjectId)
 		event := map[string]interface{}{
 			"event_type":             "task.deadline_changed",
 			"occurred_at":            time.Now().UTC().Format(time.RFC3339Nano),
 			"actor_user_id":          userID,
 			"task_id":                updatedTask.Id,
 			"project_id":             existing.ProjectId,
+			"project_name":           projectName,
+			"task_title":             updatedTask.Title,
 			"assignee_user_id":       updatedTask.AssignedTo,
 			"assignee_department_id": assigneeDept,
+			"assignee_full_name":     assigneeName,
+			"assignee_email":         assigneeEmail,
 			"old_deadline":           tsToFormat(existing.Deadline),
 			"new_deadline":           tsToFormat(updatedTask.Deadline),
 		}
@@ -280,22 +283,22 @@ func (s *Service) UpdateTaskStatus(ctx context.Context, req *projectv1.UpdateTas
 	}
 
 	if s.events != nil && existing.Status != updated.Status {
-		assigneeDept := ""
-		if s.userRepo != nil && updated.AssignedTo != "" {
-			if u, err := s.userRepo.FindByID(ctx, updated.AssignedTo); err == nil && u.DepartmentID != nil {
-				assigneeDept = *u.DepartmentID
-			}
-		}
+		assigneeDept, assigneeName, assigneeEmail := s.assigneeProfile(ctx, updated.AssignedTo)
+		projectName := s.projectName(ctx, updated.ProjectId)
 		event := map[string]interface{}{
 			"event_type":             "task.status_changed",
 			"occurred_at":            time.Now().UTC().Format(time.RFC3339Nano),
 			"actor_user_id":          userID,
 			"task_id":                updated.Id,
 			"project_id":             updated.ProjectId,
+			"project_name":           projectName,
+			"task_title":             updated.Title,
 			"from_status":            int32(existing.Status),
 			"to_status":              int32(updated.Status),
 			"assignee_user_id":       updated.AssignedTo,
 			"assignee_department_id": assigneeDept,
+			"assignee_full_name":     assigneeName,
+			"assignee_email":         assigneeEmail,
 			"deadline":               tsToFormat(updated.Deadline),
 		}
 		if err := s.events.Publish(ctx, "task.status_changed", event); err != nil {
@@ -381,21 +384,21 @@ func (s *Service) AssignTask(ctx context.Context, req *projectv1.AssignTaskReque
 	}
 
 	if s.events != nil && existing.AssignedTo != req.AssigneeId {
-		toDept := ""
-		if s.userRepo != nil {
-			if u, err := s.userRepo.FindByID(ctx, req.AssigneeId); err == nil && u.DepartmentID != nil {
-				toDept = *u.DepartmentID
-			}
-		}
+		toDept, toName, toEmail := s.assigneeProfile(ctx, req.AssigneeId)
+		projectName := s.projectName(ctx, task.ProjectId)
 		event := map[string]interface{}{
-			"event_type":       "task.assigned",
-			"occurred_at":      time.Now().UTC().Format(time.RFC3339Nano),
-			"actor_user_id":    userID,
-			"task_id":          task.Id,
-			"project_id":       task.ProjectId,
-			"from_user_id":     existing.AssignedTo,
-			"to_user_id":       req.AssigneeId,
-			"to_department_id": toDept,
+			"event_type":         "task.assigned",
+			"occurred_at":        time.Now().UTC().Format(time.RFC3339Nano),
+			"actor_user_id":      userID,
+			"task_id":            task.Id,
+			"project_id":         task.ProjectId,
+			"project_name":       projectName,
+			"task_title":         task.Title,
+			"from_user_id":       existing.AssignedTo,
+			"to_user_id":         req.AssigneeId,
+			"to_department_id":   toDept,
+			"assignee_full_name": toName,
+			"assignee_email":     toEmail,
 		}
 		if err := s.events.Publish(ctx, "task.assigned", event); err != nil {
 			log.Printf("Failed to publish task.assigned: %v", err)
@@ -410,6 +413,32 @@ func tsToFormat(ts *timestamppb.Timestamp) string {
 		return ""
 	}
 	return ts.AsTime().UTC().Format(time.RFC3339Nano)
+}
+
+func (s *Service) assigneeProfile(ctx context.Context, userID string) (departmentID, fullName, email string) {
+	if s.userRepo == nil || userID == "" {
+		return "", "", ""
+	}
+	u, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return "", "", ""
+	}
+	if u.DepartmentID != nil {
+		departmentID = *u.DepartmentID
+	}
+	return departmentID, u.FullName, u.Email
+}
+
+func (s *Service) projectName(ctx context.Context, projectID string) string {
+	if s.projectRepo == nil || projectID == "" {
+		return ""
+	}
+	project, err := s.projectRepo.FindByID(ctx, projectID)
+	if err != nil {
+		log.Printf("failed to enrich task event with project name: %v", err)
+		return ""
+	}
+	return project.Name
 }
 
 func deadlineChanged(a *timestamppb.Timestamp, b *timestamppb.Timestamp) bool {

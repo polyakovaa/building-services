@@ -664,6 +664,7 @@ type User struct {
 	FullName      string                 `protobuf:"bytes,2,opt,name=full_name,json=fullName,proto3" json:"full_name,omitempty"`
 	Email         string                 `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`
 	Role          string                 `protobuf:"bytes,4,opt,name=role,proto3" json:"role,omitempty"`
+	DepartmentId  string                 `protobuf:"bytes,5,opt,name=department_id,json=departmentId,proto3" json:"department_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -726,6 +727,13 @@ func (x *User) GetRole() string {
 	return ""
 }
 
+func (x *User) GetDepartmentId() string {
+	if x != nil {
+		return x.DepartmentId
+	}
+	return ""
+}
+
 type GetUserByEmailRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
@@ -768,6 +776,102 @@ func (x *GetUserByEmailRequest) GetEmail() string {
 		return x.Email
 	}
 	return ""
+}
+
+type FindUsersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Query         string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
+	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FindUsersRequest) Reset() {
+	*x = FindUsersRequest{}
+	mi := &file_project_v1_project_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FindUsersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FindUsersRequest) ProtoMessage() {}
+
+func (x *FindUsersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_project_v1_project_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FindUsersRequest.ProtoReflect.Descriptor instead.
+func (*FindUsersRequest) Descriptor() ([]byte, []int) {
+	return file_project_v1_project_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *FindUsersRequest) GetQuery() string {
+	if x != nil {
+		return x.Query
+	}
+	return ""
+}
+
+func (x *FindUsersRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type FindUsersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Users         []*User                `protobuf:"bytes,1,rep,name=users,proto3" json:"users,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FindUsersResponse) Reset() {
+	*x = FindUsersResponse{}
+	mi := &file_project_v1_project_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FindUsersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FindUsersResponse) ProtoMessage() {}
+
+func (x *FindUsersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_project_v1_project_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FindUsersResponse.ProtoReflect.Descriptor instead.
+func (*FindUsersResponse) Descriptor() ([]byte, []int) {
+	return file_project_v1_project_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *FindUsersResponse) GetUsers() []*User {
+	if x != nil {
+		return x.Users
+	}
+	return nil
 }
 
 var File_project_v1_project_proto protoreflect.FileDescriptor
@@ -824,20 +928,26 @@ const file_project_v1_project_proto_rawDesc = "" +
 	"\x14DeleteProjectRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\" \n" +
 	"\x0eGetUserRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"]\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x82\x01\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tfull_name\x18\x02 \x01(\tR\bfullName\x12\x14\n" +
 	"\x05email\x18\x03 \x01(\tR\x05email\x12\x12\n" +
-	"\x04role\x18\x04 \x01(\tR\x04role\"-\n" +
+	"\x04role\x18\x04 \x01(\tR\x04role\x12#\n" +
+	"\rdepartment_id\x18\x05 \x01(\tR\fdepartmentId\"-\n" +
 	"\x15GetUserByEmailRequest\x12\x14\n" +
-	"\x05email\x18\x01 \x01(\tR\x05email*\xa2\x01\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\">\n" +
+	"\x10FindUsersRequest\x12\x14\n" +
+	"\x05query\x18\x01 \x01(\tR\x05query\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\";\n" +
+	"\x11FindUsersResponse\x12&\n" +
+	"\x05users\x18\x01 \x03(\v2\x10.project.v1.UserR\x05users*\xa2\x01\n" +
 	"\rProjectStatus\x12\x1e\n" +
 	"\x1aPROJECT_STATUS_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15PROJECT_STATUS_ACTIVE\x10\x01\x12\x1c\n" +
 	"\x18PROJECT_STATUS_COMPLETED\x10\x02\x12\x1a\n" +
 	"\x16PROJECT_STATUS_ON_HOLD\x10\x03\x12\x1c\n" +
-	"\x18PROJECT_STATUS_CANCELLED\x10\x042\xd4\x04\n" +
+	"\x18PROJECT_STATUS_CANCELLED\x10\x042\x9e\x05\n" +
 	"\x0eProjectService\x12F\n" +
 	"\rCreateProject\x12 .project.v1.CreateProjectRequest\x1a\x13.project.v1.Project\x12@\n" +
 	"\n" +
@@ -847,7 +957,8 @@ const file_project_v1_project_proto_rawDesc = "" +
 	"\rDeleteProject\x12 .project.v1.DeleteProjectRequest\x1a\x16.google.protobuf.Empty\x12R\n" +
 	"\x13ChangeProjectStatus\x12&.project.v1.ChangeProjectStatusRequest\x1a\x13.project.v1.Project\x127\n" +
 	"\aGetUser\x12\x1a.project.v1.GetUserRequest\x1a\x10.project.v1.User\x12E\n" +
-	"\x0eGetUserByEmail\x12!.project.v1.GetUserByEmailRequest\x1a\x10.project.v1.UserB\x1aZ\x18gen/project/v1;projectv1b\x06proto3"
+	"\x0eGetUserByEmail\x12!.project.v1.GetUserByEmailRequest\x1a\x10.project.v1.User\x12H\n" +
+	"\tFindUsers\x12\x1c.project.v1.FindUsersRequest\x1a\x1d.project.v1.FindUsersResponseB\x1aZ\x18gen/project/v1;projectv1b\x06proto3"
 
 var (
 	file_project_v1_project_proto_rawDescOnce sync.Once
@@ -862,7 +973,7 @@ func file_project_v1_project_proto_rawDescGZIP() []byte {
 }
 
 var file_project_v1_project_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_project_v1_project_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_project_v1_project_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_project_v1_project_proto_goTypes = []any{
 	(ProjectStatus)(0),                 // 0: project.v1.ProjectStatus
 	(*Project)(nil),                    // 1: project.v1.Project
@@ -876,42 +987,47 @@ var file_project_v1_project_proto_goTypes = []any{
 	(*GetUserRequest)(nil),             // 9: project.v1.GetUserRequest
 	(*User)(nil),                       // 10: project.v1.User
 	(*GetUserByEmailRequest)(nil),      // 11: project.v1.GetUserByEmailRequest
-	(*timestamppb.Timestamp)(nil),      // 12: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),              // 13: google.protobuf.Empty
+	(*FindUsersRequest)(nil),           // 12: project.v1.FindUsersRequest
+	(*FindUsersResponse)(nil),          // 13: project.v1.FindUsersResponse
+	(*timestamppb.Timestamp)(nil),      // 14: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),              // 15: google.protobuf.Empty
 }
 var file_project_v1_project_proto_depIdxs = []int32{
 	0,  // 0: project.v1.Project.status:type_name -> project.v1.ProjectStatus
-	12, // 1: project.v1.Project.start_date:type_name -> google.protobuf.Timestamp
-	12, // 2: project.v1.Project.end_date:type_name -> google.protobuf.Timestamp
-	12, // 3: project.v1.Project.created_at:type_name -> google.protobuf.Timestamp
-	12, // 4: project.v1.Project.updated_at:type_name -> google.protobuf.Timestamp
-	12, // 5: project.v1.CreateProjectRequest.start_date:type_name -> google.protobuf.Timestamp
-	12, // 6: project.v1.CreateProjectRequest.end_date:type_name -> google.protobuf.Timestamp
+	14, // 1: project.v1.Project.start_date:type_name -> google.protobuf.Timestamp
+	14, // 2: project.v1.Project.end_date:type_name -> google.protobuf.Timestamp
+	14, // 3: project.v1.Project.created_at:type_name -> google.protobuf.Timestamp
+	14, // 4: project.v1.Project.updated_at:type_name -> google.protobuf.Timestamp
+	14, // 5: project.v1.CreateProjectRequest.start_date:type_name -> google.protobuf.Timestamp
+	14, // 6: project.v1.CreateProjectRequest.end_date:type_name -> google.protobuf.Timestamp
 	0,  // 7: project.v1.ListProjectsRequest.status_filter:type_name -> project.v1.ProjectStatus
 	1,  // 8: project.v1.ListProjectsResponse.projects:type_name -> project.v1.Project
-	12, // 9: project.v1.UpdateProjectRequest.end_date:type_name -> google.protobuf.Timestamp
+	14, // 9: project.v1.UpdateProjectRequest.end_date:type_name -> google.protobuf.Timestamp
 	0,  // 10: project.v1.ChangeProjectStatusRequest.status:type_name -> project.v1.ProjectStatus
-	2,  // 11: project.v1.ProjectService.CreateProject:input_type -> project.v1.CreateProjectRequest
-	3,  // 12: project.v1.ProjectService.GetProject:input_type -> project.v1.GetProjectRequest
-	4,  // 13: project.v1.ProjectService.ListProjects:input_type -> project.v1.ListProjectsRequest
-	6,  // 14: project.v1.ProjectService.UpdateProject:input_type -> project.v1.UpdateProjectRequest
-	8,  // 15: project.v1.ProjectService.DeleteProject:input_type -> project.v1.DeleteProjectRequest
-	7,  // 16: project.v1.ProjectService.ChangeProjectStatus:input_type -> project.v1.ChangeProjectStatusRequest
-	9,  // 17: project.v1.ProjectService.GetUser:input_type -> project.v1.GetUserRequest
-	11, // 18: project.v1.ProjectService.GetUserByEmail:input_type -> project.v1.GetUserByEmailRequest
-	1,  // 19: project.v1.ProjectService.CreateProject:output_type -> project.v1.Project
-	1,  // 20: project.v1.ProjectService.GetProject:output_type -> project.v1.Project
-	5,  // 21: project.v1.ProjectService.ListProjects:output_type -> project.v1.ListProjectsResponse
-	1,  // 22: project.v1.ProjectService.UpdateProject:output_type -> project.v1.Project
-	13, // 23: project.v1.ProjectService.DeleteProject:output_type -> google.protobuf.Empty
-	1,  // 24: project.v1.ProjectService.ChangeProjectStatus:output_type -> project.v1.Project
-	10, // 25: project.v1.ProjectService.GetUser:output_type -> project.v1.User
-	10, // 26: project.v1.ProjectService.GetUserByEmail:output_type -> project.v1.User
-	19, // [19:27] is the sub-list for method output_type
-	11, // [11:19] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	10, // 11: project.v1.FindUsersResponse.users:type_name -> project.v1.User
+	2,  // 12: project.v1.ProjectService.CreateProject:input_type -> project.v1.CreateProjectRequest
+	3,  // 13: project.v1.ProjectService.GetProject:input_type -> project.v1.GetProjectRequest
+	4,  // 14: project.v1.ProjectService.ListProjects:input_type -> project.v1.ListProjectsRequest
+	6,  // 15: project.v1.ProjectService.UpdateProject:input_type -> project.v1.UpdateProjectRequest
+	8,  // 16: project.v1.ProjectService.DeleteProject:input_type -> project.v1.DeleteProjectRequest
+	7,  // 17: project.v1.ProjectService.ChangeProjectStatus:input_type -> project.v1.ChangeProjectStatusRequest
+	9,  // 18: project.v1.ProjectService.GetUser:input_type -> project.v1.GetUserRequest
+	11, // 19: project.v1.ProjectService.GetUserByEmail:input_type -> project.v1.GetUserByEmailRequest
+	12, // 20: project.v1.ProjectService.FindUsers:input_type -> project.v1.FindUsersRequest
+	1,  // 21: project.v1.ProjectService.CreateProject:output_type -> project.v1.Project
+	1,  // 22: project.v1.ProjectService.GetProject:output_type -> project.v1.Project
+	5,  // 23: project.v1.ProjectService.ListProjects:output_type -> project.v1.ListProjectsResponse
+	1,  // 24: project.v1.ProjectService.UpdateProject:output_type -> project.v1.Project
+	15, // 25: project.v1.ProjectService.DeleteProject:output_type -> google.protobuf.Empty
+	1,  // 26: project.v1.ProjectService.ChangeProjectStatus:output_type -> project.v1.Project
+	10, // 27: project.v1.ProjectService.GetUser:output_type -> project.v1.User
+	10, // 28: project.v1.ProjectService.GetUserByEmail:output_type -> project.v1.User
+	13, // 29: project.v1.ProjectService.FindUsers:output_type -> project.v1.FindUsersResponse
+	21, // [21:30] is the sub-list for method output_type
+	12, // [12:21] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_project_v1_project_proto_init() }
@@ -925,7 +1041,7 @@ func file_project_v1_project_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_project_v1_project_proto_rawDesc), len(file_project_v1_project_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   11,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

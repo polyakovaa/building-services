@@ -4,6 +4,7 @@ import (
 	projectv1 "building-services/gen/project/v1"
 	"context"
 	"database/sql"
+	"log"
 	"time"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -18,6 +19,7 @@ func NewRepository(db *sql.DB) *Repository {
 }
 
 func (r *Repository) IsProjectMember(ctx context.Context, projectID, userID string) (*projectv1.ProjectMember, error) {
+	log.Printf("[DEBUG] IsProjectMember: checking user %s in project %s", userID, projectID)
 	query := `SELECT project_id, user_id, department_id, joined_at
               FROM project_members WHERE project_id = $1 AND user_id = $2`
 
@@ -31,10 +33,12 @@ func (r *Repository) IsProjectMember(ctx context.Context, projectID, userID stri
 		&joinedAt,
 	)
 	if err != nil {
+		log.Printf("[DEBUG] IsProjectMember: query failed for user %s in project %s: %v", userID, projectID, err)
 		return nil, err
 	}
 
 	member.JoinedAt = timestamppb.New(joinedAt)
+	log.Printf("[DEBUG] IsProjectMember: found member for user %s in project %s: %+v", userID, projectID, member)
 	return &member, nil
 }
 
@@ -103,8 +107,17 @@ func (r *Repository) IsManagerOfProject(ctx context.Context, projectID, userID s
 }
 
 func (r *Repository) GetProjectMembers(ctx context.Context, projectID string) ([]*projectv1.ProjectMember, error) {
-	query := `SELECT project_id, user_id, department_id, joined_at
-              FROM project_members WHERE project_id = $1`
+	query := `
+		SELECT pm.project_id, pm.user_id, pm.department_id, pm.joined_at,
+		       COALESCE(NULLIF(d.name, ''), NULLIF(ud.name, ''), '') AS department_name,
+		       COALESCE(NULLIF(u.full_name, ''), '') AS user_full_name,
+		       COALESCE(NULLIF(u.email, ''), '') AS user_email
+		FROM project_members pm
+		LEFT JOIN users u ON u.id = pm.user_id
+		LEFT JOIN departments d ON d.id = pm.department_id
+		LEFT JOIN departments ud ON ud.id = u.department_id
+		WHERE pm.project_id = $1
+		ORDER BY u.full_name NULLS LAST, pm.joined_at`
 
 	var members []*projectv1.ProjectMember
 
@@ -119,21 +132,26 @@ func (r *Repository) GetProjectMembers(ctx context.Context, projectID string) ([
 		var member projectv1.ProjectMember
 		var joinedAt sql.NullTime
 		var deptID sql.NullString
+		var deptName, fullName, email string
 
 		err := rows.Scan(
 			&member.ProjectId,
 			&member.UserId,
 			&deptID,
 			&joinedAt,
+			&deptName,
+			&fullName,
+			&email,
 		)
 		if err != nil {
 			return nil, err
 		}
 		if deptID.Valid {
 			member.DepartmentId = deptID.String
-		} else {
-			member.DepartmentId = ""
 		}
+		member.DepartmentName = deptName
+		member.UserFullName = fullName
+		member.UserEmail = email
 
 		if joinedAt.Valid {
 			member.JoinedAt = timestamppb.New(joinedAt.Time)

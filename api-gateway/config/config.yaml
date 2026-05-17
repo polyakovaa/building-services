@@ -12,6 +12,9 @@ services:
   analytics:
     address: "dns:///analytics_service:50053"
     timeout: 5s
+  notification:
+    address: "dns:///notification_service:50054"
+    timeout: 5s
 
 jwt_secret: "secret"
 logging:

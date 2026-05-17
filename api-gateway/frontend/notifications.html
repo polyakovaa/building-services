@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Уведомления</title>
+    <link rel="stylesheet" href="/static/style.css?v=notifications-2">
+    <script src="/static/app.js"></script>
+    <link rel="stylesheet" href="/static/notification.css">
+</head>
+<body class="dashboard-body notifications-page">
+    <div class="dashboard-container">
+        <div class="header">
+            <h1>Уведомления</h1>
+            <div class="user-info">
+                <span class="user-name" id="userName"></span>
+                <span class="user-role" id="userRole"></span>
+                <button class="logout-btn" onclick="logout()">Выйти</button>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="sidebar">
+                <ul class="sidebar-menu">
+                    <li class="sidebar-item" data-page="dashboard" onclick="window.location.href='/dashboard'">
+                        <span>Главная</span>
+                    </li>
+                    <li class="sidebar-item" data-page="projects" onclick="window.location.href='/projects'">
+                        <span>Проекты</span>
+                    </li>
+                    <li class="sidebar-item" data-page="tasks" onclick="window.location.href='/tasks'">
+                        <span>Мои задачи</span>
+                    </li>
+                    <li class="sidebar-item" data-page="calendar" onclick="window.location.href='/calendar'">
+                        <span>Календарь</span>
+                    </li>
+                    <li class="sidebar-item" data-page="analytics" id="analyticsMenuItem" style="display: none;" onclick="window.location.href='/analytics'">
+                        <span>Аналитика</span>
+                    </li>
+                    <li class="sidebar-item active" data-page="notifications">
+                        <span>Уведомления</span>
+                        <span class="notification-badge" id="notifCount"></span>
+                    </li>
+                    <li class="sidebar-item" data-page="profile" onclick="window.location.href='/profile'">
+                        <span>Профиль</span>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="main-content">
+                <div class="notifications-header">
+                    <div>
+                        <h2 class="section-title">Мои уведомления</h2>
+                        <p class="notifications-subtitle">Важные изменения по задачам и проектам</p>
+                    </div>
+                    <button class="btn-secondary" id="markAllReadBtn">Отметить все прочитанными</button>
+                </div>
+                <div class="notifications-list" id="notificationsContainer">
+                    <div class="loading">Загрузка уведомлений...</div>
+                </div>
+                <div class="notifications-actions">
+                    <button class="btn-secondary" id="loadMoreBtn" style="display: none;">Показать ещё</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let nextNotificationPageToken = '';
+
+        function notificationDate(ts) {
+            if (!ts || ts.seconds === undefined || ts.seconds === null) return '';
+            return new Date(Number(ts.seconds) * 1000).toLocaleString('ru-RU', {
+                dateStyle: 'short',
+                timeStyle: 'short'
+            });
+        }
+
+        function priorityClass(priority) {
+            const map = {
+                1: 'notification-info',
+                2: 'notification-warning',
+                3: 'notification-critical'
+            };
+            return map[priority] || 'notification-info';
+        }
+
+        function notificationPayload(item) {
+            if (!item.message) return {};
+            try {
+                return JSON.parse(item.message);
+            } catch (err) {
+                return {};
+            }
+        }
+
+        function fallbackTaskTitle(payload) {
+            return payload.task_title || 'Без названия';
+        }
+
+        function formatNotificationDeadline(value) {
+            if (!value) return 'не указан';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return value;
+            return date.toLocaleDateString('ru-RU');
+        }
+
+        function taskStatusText(status) {
+            const map = {
+                1: 'К выполнению',
+                2: 'В работе',
+                3: 'Завершена',
+                4: 'Заблокирована'
+            };
+            return map[Number(status)] || 'Неизвестно';
+        }
+
+        function notificationText(item) {
+            const payload = notificationPayload(item);
+            const taskTitle = fallbackTaskTitle(payload);
+            const projectName = payload.project_name || '';
+            const inProject = projectName ? ` в проекте «${projectName}»` : '';
+
+            const templates = {
+                task_created: {
+                    title: 'Вам назначена новая задача',
+                    message: `Задача «${taskTitle}» создана${inProject}.`
+                },
+                task_assigned: {
+                    title: 'Вам назначили задачу',
+                    message: `Вам назначена задача «${taskTitle}»${inProject}.`
+                },
+                task_deadline_changed: {
+                    title: 'Изменён срок задачи',
+                    message: `Новый срок задачи «${taskTitle}»: ${formatNotificationDeadline(payload.new_deadline)}.`
+                },
+                task_deadline_upcoming: {
+                    title: 'Скоро дедлайн задачи',
+                    message: `До дедлайна задачи «${taskTitle}» осталось не больше 3 дней: ${formatNotificationDeadline(payload.deadline)}.`
+                },
+                task_deadline_overdue: {
+                    title: 'Задача просрочена',
+                    message: `Дедлайн задачи «${taskTitle}» уже прошёл: ${formatNotificationDeadline(payload.deadline)}.`
+                },
+                task_status_changed: {
+                    title: 'Изменён статус задачи',
+                    message: `Статус задачи «${taskTitle}» изменён на «${taskStatusText(payload.to_status)}».`
+                },
+                project_member_added: {
+                    title: 'Вас добавили в проект',
+                    message: `Вы добавлены в проект «${projectName || 'проект'}».`
+                }
+            };
+            return templates[item.type] || {
+                title: 'Уведомление',
+                message: 'Есть новое событие по проекту или задаче.'
+            };
+        }
+
+        function renderNotificationItem(item) {
+            const readClass = item.read_at ? 'notification-read' : 'notification-unread';
+            const text = notificationText(item);
+            const action = item.action_url
+                ? `<a class="notification-link" href="${escapeHtml(item.action_url)}">Открыть</a>`
+                : '';
+            const markButton = item.read_at
+                ? ''
+                : `<button class="notification-read-btn" data-id="${escapeHtml(item.id)}">Прочитано</button>`;
+            return `
+                <div class="notification-item ${readClass}">
+                    <div class="notification-marker ${priorityClass(item.priority)}"></div>
+                    <div class="notification-content">
+                        <div class="notification-title-row">
+                            <h3>${escapeHtml(text.title)}</h3>
+                            <span class="notification-date">${notificationDate(item.created_at)}</span>
+                        </div>
+                        <p>${escapeHtml(text.message)}</p>
+                        <div class="notification-item-actions">
+                            ${action}
+                            ${markButton}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadNotifications(append = false) {
+            const container = document.getElementById('notificationsContainer');
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            if (!append) {
+                container.innerHTML = '<div class="loading">Загрузка уведомлений...</div>';
+                nextNotificationPageToken = '';
+            }
+            const params = new URLSearchParams({ page_size: '20' });
+            if (append && nextNotificationPageToken) {
+                params.set('page_token', nextNotificationPageToken);
+            }
+            try {
+                const response = await apiRequest(`/api/notifications?${params.toString()}`);
+                const data = await response.json();
+                const items = data.notifications || [];
+                nextNotificationPageToken = data.next_page_token || '';
+                if (!append && items.length === 0) {
+                    container.innerHTML = '<div class="empty">Уведомлений пока нет</div>';
+                } else {
+                    const html = items.map(renderNotificationItem).join('');
+                    if (append) {
+                        container.insertAdjacentHTML('beforeend', html);
+                    } else {
+                        container.innerHTML = html;
+                    }
+                }
+                loadMoreBtn.style.display = nextNotificationPageToken ? 'inline-flex' : 'none';
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = '<div class="empty">Ошибка загрузки уведомлений</div>';
+            }
+        }
+
+        async function markAsRead(id) {
+            await apiRequest(`/api/notifications/${encodeURIComponent(id)}/read`, { method: 'PATCH' });
+            await loadNotifications(false);
+            await updateNotificationBadge();
+        }
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            await loadUserInfo();
+            await loadNotifications(false);
+
+            document.getElementById('notificationsContainer').addEventListener('click', async (event) => {
+                const button = event.target.closest('.notification-read-btn');
+                if (!button) return;
+                await markAsRead(button.dataset.id);
+            });
+
+            document.getElementById('markAllReadBtn').addEventListener('click', async () => {
+                await apiRequest('/api/notifications/read-all', { method: 'PATCH' });
+                await loadNotifications(false);
+                await updateNotificationBadge();
+            });
+
+            document.getElementById('loadMoreBtn').addEventListener('click', () => loadNotifications(true));
+        });
+    </script>
+</body>
+</html>

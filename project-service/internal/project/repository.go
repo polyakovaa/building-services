@@ -19,10 +19,11 @@ func NewRepository(db *sql.DB) *Repository {
 }
 
 type ProjectFilter struct {
-	Status    projectv1.ProjectStatus
-	ManagerID string
-	UserID    string
-	UserRole  string
+	Status       projectv1.ProjectStatus
+	ManagerID    string
+	UserID       string
+	UserRole     string
+	DepartmentID *string
 }
 
 func (r *Repository) Exists(ctx context.Context, id string) (bool, error) {
@@ -210,22 +211,16 @@ func (r *Repository) List(ctx context.Context, filter *ProjectFilter) ([]*projec
 	}
 
 	switch filter.UserRole {
-	case "ROLE_DIRECTOR", "ROLE_GIP":
-	case "ROLE_DEPARTMENT_MANAGER":
-		query += fmt.Sprintf(` AND id IN (
-            SELECT project_id FROM project_members pm
-            JOIN users u ON u.id = pm.user_id
-            WHERE u.department_id = $%d
-        )`, argIdx)
-		args = append(args, filter.UserID)
-		argIdx++
-	default:
+	case "ROLE_DIRECTOR", "ROLE_ADMIN":
+	case "ROLE_DEPARTMENT_MANAGER", "ROLE_PROJECT_MANAGER", "ROLE_GIP", "ROLE_WORKER":
 		query += fmt.Sprintf(` AND id IN (
             SELECT project_id FROM project_members 
             WHERE user_id = $%d
         )`, argIdx)
 		args = append(args, filter.UserID)
 		argIdx++
+	default:
+		query += " AND 1=0"
 	}
 
 	rows, err := r.db.QueryContext(ctx, query, args...)

@@ -28,6 +28,7 @@ const (
 	ProjectService_ChangeProjectStatus_FullMethodName = "/project.v1.ProjectService/ChangeProjectStatus"
 	ProjectService_GetUser_FullMethodName             = "/project.v1.ProjectService/GetUser"
 	ProjectService_GetUserByEmail_FullMethodName      = "/project.v1.ProjectService/GetUserByEmail"
+	ProjectService_FindUsers_FullMethodName           = "/project.v1.ProjectService/FindUsers"
 )
 
 // ProjectServiceClient is the client API for ProjectService service.
@@ -42,6 +43,7 @@ type ProjectServiceClient interface {
 	ChangeProjectStatus(ctx context.Context, in *ChangeProjectStatusRequest, opts ...grpc.CallOption) (*Project, error)
 	GetUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*User, error)
 	GetUserByEmail(ctx context.Context, in *GetUserByEmailRequest, opts ...grpc.CallOption) (*User, error)
+	FindUsers(ctx context.Context, in *FindUsersRequest, opts ...grpc.CallOption) (*FindUsersResponse, error)
 }
 
 type projectServiceClient struct {
@@ -132,6 +134,16 @@ func (c *projectServiceClient) GetUserByEmail(ctx context.Context, in *GetUserBy
 	return out, nil
 }
 
+func (c *projectServiceClient) FindUsers(ctx context.Context, in *FindUsersRequest, opts ...grpc.CallOption) (*FindUsersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FindUsersResponse)
+	err := c.cc.Invoke(ctx, ProjectService_FindUsers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ProjectServiceServer is the server API for ProjectService service.
 // All implementations must embed UnimplementedProjectServiceServer
 // for forward compatibility.
@@ -144,6 +156,7 @@ type ProjectServiceServer interface {
 	ChangeProjectStatus(context.Context, *ChangeProjectStatusRequest) (*Project, error)
 	GetUser(context.Context, *GetUserRequest) (*User, error)
 	GetUserByEmail(context.Context, *GetUserByEmailRequest) (*User, error)
+	FindUsers(context.Context, *FindUsersRequest) (*FindUsersResponse, error)
 	mustEmbedUnimplementedProjectServiceServer()
 }
 
@@ -177,6 +190,9 @@ func (UnimplementedProjectServiceServer) GetUser(context.Context, *GetUserReques
 }
 func (UnimplementedProjectServiceServer) GetUserByEmail(context.Context, *GetUserByEmailRequest) (*User, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUserByEmail not implemented")
+}
+func (UnimplementedProjectServiceServer) FindUsers(context.Context, *FindUsersRequest) (*FindUsersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FindUsers not implemented")
 }
 func (UnimplementedProjectServiceServer) mustEmbedUnimplementedProjectServiceServer() {}
 func (UnimplementedProjectServiceServer) testEmbeddedByValue()                        {}
@@ -343,6 +359,24 @@ func _ProjectService_GetUserByEmail_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ProjectService_FindUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FindUsersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProjectServiceServer).FindUsers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ProjectService_FindUsers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProjectServiceServer).FindUsers(ctx, req.(*FindUsersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ProjectService_ServiceDesc is the grpc.ServiceDesc for ProjectService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -381,6 +415,10 @@ var ProjectService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUserByEmail",
 			Handler:    _ProjectService_GetUserByEmail_Handler,
+		},
+		{
+			MethodName: "FindUsers",
+			Handler:    _ProjectService_FindUsers_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -4,6 +4,7 @@ import (
 	projectv1 "building-services/gen/project/v1"
 	"building-services/project-service/internal/user"
 	"context"
+	"log"
 )
 
 type PermissionChecker struct {
@@ -81,16 +82,17 @@ const (
 )
 
 func (c *PermissionChecker) Check(ctx context.Context, userID string, resourceType string, resourceID string, action string) (bool, error) {
+	log.Printf("[DEBUG] Check: userID=%s, resourceType=%s, resourceID=%s, action=%s", userID, resourceType, resourceID, action)
+
 	user, err := c.userRepo.FindByID(ctx, userID)
 	if err != nil {
+		log.Printf("[DEBUG] Check: failed to find user %s: %v", userID, err)
 		return false, err
 	}
+	log.Printf("[DEBUG] Check: user %s has role %s", userID, user.Role)
 
-	if user.Role == RoleAdmin {
-		return true, nil
-	}
-
-	if user.Role == RoleDirector || user.Role == RoleGIP {
+	if user.Role == RoleAdmin || user.Role == RoleDirector {
+		log.Printf("[DEBUG] Check: %s has admin/director role - access granted", userID)
 		return true, nil
 	}
 
@@ -99,13 +101,18 @@ func (c *PermissionChecker) Check(ctx context.Context, userID string, resourceTy
 		if resourceID == "" && action == ActionView {
 			return true, nil
 		}
-		return c.checkProject(ctx, user, resourceID, action)
+		result, err := c.checkProject(ctx, user, resourceID, action)
+		log.Printf("[DEBUG] Check: project permission result for user %s: %v, err: %v", userID, result, err)
+		return result, err
 	case ResourceTask:
-		return c.checkTask(ctx, user, resourceID, action)
+		result, err := c.checkTask(ctx, user, resourceID, action)
+		log.Printf("[DEBUG] Check: task permission result for user %s: %v, err: %v", userID, result, err)
+		return result, err
 	case ResourceAttachment:
 		return c.checkAttachment(ctx, user, resourceID, action)
 	}
 
+	log.Printf("[DEBUG] Check: unsupported resource type %s - access denied", resourceType)
 	return false, nil
 }
 
@@ -113,7 +120,7 @@ func (c *PermissionChecker) checkProject(ctx context.Context, user *user.User, p
 	switch action {
 	case ActionCreate:
 		return user.Role == RoleProjectManager ||
-			user.Role == RoleDepartmentManager, nil
+			user.Role == RoleGIP, nil
 
 	case ActionView:
 		if user.Role == RoleDepartmentManager {
@@ -124,11 +131,19 @@ func (c *PermissionChecker) checkProject(ctx context.Context, user *user.User, p
 		}
 		_, err := c.memberRepo.IsProjectMember(ctx, projectID, user.ID)
 		if err != nil {
-			return false, err
+			return false, nil
 		}
 		return true, nil
 
 	case ActionEdit, ActionChangeStatus:
+		if user.Role == RoleGIP {
+			member, err := c.memberRepo.IsProjectMember(ctx, projectID, user.ID)
+			if err != nil {
+				return false, nil
+			}
+			allowed := member != nil
+			return allowed, nil
+		}
 		if user.Role == RoleDepartmentManager {
 			if user.DepartmentID == nil {
 				return false, nil
@@ -146,22 +161,22 @@ func (c *PermissionChecker) checkProject(ctx context.Context, user *user.User, p
 	default:
 		return false, nil
 	}
-
 }
 
 func (c *PermissionChecker) checkTask(ctx context.Context, user *user.User, taskID string, action string) (bool, error) {
-	projectID, err := c.taskRepo.GetProjectID(ctx, taskID)
-	if err != nil {
-		return false, err
-	}
+	log.Printf("[DEBUG] checkTask: user=%s, role=%s, taskID=%s, action=%s", user.ID, user.Role, taskID, action)
 
 	switch action {
 	case ActionCreate:
-		// Создавать задачу могут те же, кто может редактировать проект
+		projectID := taskID
 		return c.checkProject(ctx, user, projectID, ActionEdit)
 
 	case ActionView:
-		// Если может видеть проект — видит и задачи
+		projectID, err := c.taskRepo.GetProjectID(ctx, taskID)
+		if err != nil {
+			log.Printf("[DEBUG] checkTask: failed to get projectID for task %s: %v", taskID, err)
+			return false, err
+		}
 		ok, err := c.checkProject(ctx, user, projectID, ActionView)
 		if err != nil {
 			return false, err
@@ -169,17 +184,46 @@ func (c *PermissionChecker) checkTask(ctx context.Context, user *user.User, task
 		if ok {
 			return true, nil
 		}
-		// Или если исполнитель задачи
 		return c.taskRepo.IsAssignee(ctx, taskID, user.ID)
 
 	case ActionEdit:
+		projectID, err := c.taskRepo.GetProjectID(ctx, taskID)
+		if err != nil {
+			log.Printf("[DEBUG] checkTask: failed to get projectID for task %s: %v", taskID, err)
+			return false, err
+		}
 		return c.checkProject(ctx, user, projectID, ActionEdit)
 
 	case ActionDelete:
-		return false, nil // только директор
+		projectID, err := c.taskRepo.GetProjectID(ctx, taskID)
+		if err != nil {
+			log.Printf("[DEBUG] checkTask: failed to get projectID for task %s: %v", taskID, err)
+			return false, err
+		}
+		if user.Role == RoleAdmin || user.Role == RoleDirector || user.Role == RoleGIP {
+			return true, nil
+		}
+		if user.Role == RoleDepartmentManager {
+			return c.checkProject(ctx, user, projectID, ActionEdit)
+		}
+		if user.Role == RoleProjectManager {
+			return c.checkProject(ctx, user, projectID, ActionEdit)
+		}
+		if user.Role == RoleWorker {
+			task, err := c.taskRepo.FindByID(ctx, taskID)
+			if err != nil {
+				return false, err
+			}
+			return task.CreatedBy == user.ID, nil
+		}
+		return false, nil
 
 	case ActionChangeStatus:
-		// Менеджеры могут менять статус любых задач в проекте
+		projectID, err := c.taskRepo.GetProjectID(ctx, taskID)
+		if err != nil {
+			log.Printf("[DEBUG] checkTask: failed to get projectID for task %s: %v", taskID, err)
+			return false, err
+		}
 		ok, err := c.checkProject(ctx, user, projectID, ActionEdit)
 		if err != nil {
 			return false, err
@@ -187,10 +231,14 @@ func (c *PermissionChecker) checkTask(ctx context.Context, user *user.User, task
 		if ok {
 			return true, nil
 		}
-		// Worker может менять статус только своих задач
 		return c.taskRepo.IsAssignee(ctx, taskID, user.ID)
 
 	case ActionAssign:
+		projectID, err := c.taskRepo.GetProjectID(ctx, taskID)
+		if err != nil {
+			log.Printf("[DEBUG] checkTask: failed to get projectID for task %s: %v", taskID, err)
+			return false, err
+		}
 		return c.checkProject(ctx, user, projectID, ActionEdit)
 
 	default:
@@ -198,26 +246,20 @@ func (c *PermissionChecker) checkTask(ctx context.Context, user *user.User, task
 	}
 }
 
-// authz/permissions.go
 func (c *PermissionChecker) checkAttachment(ctx context.Context, user *user.User, attachmentID string, action string) (bool, error) {
-	// Получаем task_id из вложения
 	taskID, err := c.attachmentRepo.GetTaskID(ctx, attachmentID)
 	if err != nil {
 		return false, err
 	}
 
-	// Права на вложение наследуются от прав на задачу
 	switch action {
 	case ActionUpload, ActionCreate:
-		// Загружать файлы могут те, кто может редактировать задачу
 		return c.checkTask(ctx, user, taskID, ActionEdit)
 
 	case ActionView, ActionDownload:
-		// Смотреть файлы могут те, кто может видеть задачу
 		return c.checkTask(ctx, user, taskID, ActionView)
 
 	case ActionDelete:
-		// только автор или менеджер
 		uploadedBy, _ := c.attachmentRepo.GetUploadedBy(ctx, attachmentID)
 		if user.ID == uploadedBy {
 			return true, nil
@@ -232,15 +274,12 @@ func (c *PermissionChecker) checkAttachment(ctx context.Context, user *user.User
 func (c *PermissionChecker) checkDepartment(ctx context.Context, user *user.User, departmentID string, action string) (bool, error) {
 	switch action {
 	case ActionCreate:
-		// Создавать отдел могут ADMIN и DIRECTOR
 		return user.Role == RoleAdmin || user.Role == RoleDirector, nil
 
 	case ActionView:
-		// ADMIN и DIRECTOR видят все отделы
 		if user.Role == RoleAdmin || user.Role == RoleDirector {
 			return true, nil
 		}
-		// DEPARTMENT_MANAGER видит только свой отдел
 		if user.Role == RoleDepartmentManager {
 			dept, err := c.departmentRepo.FindByID(ctx, departmentID)
 			if err != nil {
@@ -248,14 +287,12 @@ func (c *PermissionChecker) checkDepartment(ctx context.Context, user *user.User
 			}
 			return dept.HeadUserId == user.ID, nil
 		}
-		// PROJECT_MANAGER видит все отделы
 		if user.Role == RoleProjectManager {
 			return true, nil
 		}
 		return false, nil
 
 	case ActionEdit:
-		// Редактировать отдел могут ADMIN, DIRECTOR, а также глава отдела
 		if user.Role == RoleAdmin || user.Role == RoleDirector {
 			return true, nil
 		}
@@ -269,11 +306,9 @@ func (c *PermissionChecker) checkDepartment(ctx context.Context, user *user.User
 		return false, nil
 
 	case ActionDelete:
-		// Удалять отдел может только ADMIN
 		return user.Role == RoleAdmin, nil
 
 	case ActionAssignToDept:
-		// Назначать в отдел могут ADMIN, DIRECTOR, PROJECT_MANAGER, а также глава отдела (в свой)
 		if user.Role == RoleAdmin || user.Role == RoleDirector || user.Role == RoleProjectManager {
 			return true, nil
 		}

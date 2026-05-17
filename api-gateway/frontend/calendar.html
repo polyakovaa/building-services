@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Календарь | ГенСей</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/calendar.css">
+    <script src="/static/app.js"></script>
+</head>
+<body class="dashboard-body">
+    <div class="dashboard-container">
+        <div class="header">
+            <h1>Календарь</h1>
+            <div class="user-info">
+                <span class="user-name" id="userName"></span>
+                <span class="user-role" id="userRole"></span>
+                <button class="logout-btn" onclick="logout()">Выйти</button>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="sidebar">
+                <ul class="sidebar-menu">
+                    <li class="sidebar-item" data-page="dashboard" onclick="window.location.href='/dashboard'">
+                        <span>Главная</span>
+                    </li>
+                    <li class="sidebar-item" data-page="projects" onclick="window.location.href='/projects'">
+                        <span>Проекты</span>
+                    </li>
+                    <li class="sidebar-item" data-page="tasks" onclick="window.location.href='/tasks'">
+                        <span>Мои задачи</span>
+                    </li>
+                    <li class="sidebar-item active" data-page="calendar">
+                        <span>Календарь</span>
+                    </li>
+                    <li class="sidebar-item" data-page="analytics" id="analyticsMenuItem" style="display: none;">
+                        <span>Аналитика</span>
+                    </li>
+                    <li class="sidebar-item" data-page="notifications" onclick="window.location.href='/notifications'">
+                        <span>Уведомления</span>
+                        <span class="notification-badge" id="notifCount"></span>
+                    </li>
+                    <li class="sidebar-item" data-page="profile" onclick="window.location.href='/profile'">
+                        <span>Профиль</span>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="main-content calendar-main">
+                <div id="calendarLoading" class="loading">Загрузка календаря...</div>
+                <div id="calendarRoot" style="display: none;">
+                    <div class="cal-toolbar">
+                        <button type="button" class="cal-nav-btn" id="calPrev" aria-label="Предыдущий месяц">←</button>
+                        <h2 class="cal-month-title" id="calMonthTitle"></h2>
+                        <button type="button" class="cal-nav-btn" id="calNext" aria-label="Следующий месяц">→</button>
+                    </div>
+                    <div class="cal-legend">
+                        <span><i class="cal-dot cal-dot--task"></i> дедлайн задачи</span>
+                        <span><i class="cal-dot cal-dot--project"></i> окончание проекта</span>
+                        <span><i class="cal-dot cal-dot--milestone"></i> этап по проекту</span>
+                    </div>
+                    <div class="cal-weekdays">
+                        <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span>
+                    </div>
+                    <div class="cal-grid" id="calGrid"></div>
+                    <div class="cal-day-panel">
+                        <h3 class="section-title cal-day-panel-title" id="calDayPanelTitle">События за день</h3>
+                        <div id="calDayPanelBody" class="cal-day-panel-body">
+                            <div class="empty">Выберите день в сетке календаря.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const TL_FIELDS = [
+            ['contract_date', 'Дата договора'],
+            ['work_start_date', 'Начало работ'],
+            ['work_end_date', 'Окончание работ'],
+            ['handover_date', 'Передача заказчику'],
+            ['comments_date', 'Дата замечаний'],
+            ['comments_fixed_date', 'Исправление замечаний'],
+            ['acceptance_date', 'Дата приемки'],
+            ['final_payment_date', 'Финальная оплата']
+        ];
+        const TIMELINE_PROJECT_LIMIT = 20;
+
+        let viewYear;
+        let viewMonth;
+        let eventsByDay = new Map();
+        let selectedDateKey = null;
+
+        function dateKeyFromTs(ts) {
+            if (!ts || ts.seconds === undefined || ts.seconds === null) return null;
+            const d = new Date(Number(ts.seconds) * 1000);
+            if (isNaN(d.getTime())) return null;
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+
+        function dateKeyFromDate(d) {
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+
+        function addEvent(map, ts, ev) {
+            const key = dateKeyFromTs(ts);
+            if (!key) return;
+            if (!map.has(key)) map.set(key, []);
+            map.get(key).push(ev);
+        }
+
+        async function fetchTimelineSafe(projectId) {
+            try {
+                const r = await apiRequest('/api/projects/' + projectId + '/timeline');
+                return await r.json();
+            } catch (e) {
+                return null;
+            }
+        }
+
+        async function buildEventsMap() {
+            const map = new Map();
+            const tasksResp = await apiRequest('/api/tasks/my');
+            const tasksData = await tasksResp.json();
+            const tasks = tasksData.tasks || [];
+
+            for (const t of tasks) {
+                if (t.status === 3 || !t.deadline) continue;
+                addEvent(map, t.deadline, {
+                    kind: 'task',
+                    label: t.title || 'Без названия',
+                    href: '/task/' + t.id
+                });
+            }
+
+            const projResp = await apiRequest('/api/projects');
+            const projData = await projResp.json();
+            const projects = Array.isArray(projData) ? projData : (projData.projects || []);
+
+            for (const p of projects) {
+                if (p.end_date) {
+                    addEvent(map, p.end_date, {
+                        kind: 'project',
+                        label: 'Окончание: ' + (p.name || 'Проект'),
+                        href: '/project/' + p.id
+                    });
+                }
+            }
+
+            const slice = projects.slice(0, TIMELINE_PROJECT_LIMIT);
+            const timelines = await Promise.all(slice.map(p => fetchTimelineSafe(p.id)));
+            timelines.forEach((tl, i) => {
+                if (!tl) return;
+                const p = slice[i];
+                const pname = p.name || 'Проект';
+                for (const [field, ruLabel] of TL_FIELDS) {
+                    const ts = tl[field];
+                    if (ts) {
+                        addEvent(map, ts, {
+                            kind: 'milestone',
+                            label: pname + ' - ' + ruLabel,
+                            href: '/project/' + p.id
+                        });
+                    }
+                }
+            });
+
+            return map;
+        }
+
+        function isTodayKey(key) {
+            return key === dateKeyFromDate(new Date());
+        }
+
+        function renderGrid() {
+            const grid = document.getElementById('calGrid');
+            const first = new Date(viewYear, viewMonth, 1);
+            const startOffset = (first.getDay() + 6) % 7;
+            const d0 = new Date(viewYear, viewMonth, 1 - startOffset);
+
+            let html = '';
+            for (let i = 0; i < 42; i++) {
+                const cell = new Date(d0);
+                cell.setDate(d0.getDate() + i);
+                const key = dateKeyFromDate(cell);
+                const other = cell.getMonth() !== viewMonth;
+                const list = eventsByDay.get(key) || [];
+                const nTask = list.filter(e => e.kind === 'task').length;
+                const nProj = list.filter(e => e.kind === 'project').length;
+                const nMil = list.filter(e => e.kind === 'milestone').length;
+                const classes = ['cal-cell'];
+                if (other) classes.push('cal-cell--muted');
+                if (isTodayKey(key)) classes.push('cal-cell--today');
+                if (selectedDateKey === key) classes.push('cal-cell--selected');
+                html += '<button type="button" class="' + classes.join(' ') + '" data-date="' + key + '">';
+                html += '<span class="cal-cell-num">' + cell.getDate() + '</span>';
+                html += '<span class="cal-cell-dots">';
+                if (nTask) html += '<i class="cal-dot cal-dot--task"></i>';
+                if (nProj) html += '<i class="cal-dot cal-dot--project"></i>';
+                if (nMil) html += '<i class="cal-dot cal-dot--milestone"></i>';
+                html += '</span></button>';
+            }
+            grid.innerHTML = html;
+
+            grid.querySelectorAll('.cal-cell').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    selectedDateKey = btn.getAttribute('data-date');
+                    renderGrid();
+                    renderDayPanel();
+                });
+            });
+        }
+
+        function renderDayPanel() {
+            const title = document.getElementById('calDayPanelTitle');
+            const body = document.getElementById('calDayPanelBody');
+            if (!selectedDateKey) {
+                title.textContent = 'События за день';
+                body.innerHTML = '<div class="empty">Выберите день в сетке календаря.</div>';
+                return;
+            }
+            title.textContent = 'События - ' + selectedDateKey.split('-').reverse().join('.');
+            const list = eventsByDay.get(selectedDateKey) || [];
+            if (list.length === 0) {
+                body.innerHTML = '<div class="empty">На этот день нет дедлайнов и вех.</div>';
+                return;
+            }
+            const order = { task: 0, project: 1, milestone: 2 };
+            const sorted = [...list].sort((a, b) => (order[a.kind] ?? 9) - (order[b.kind] ?? 9));
+            body.innerHTML = sorted.map(ev => {
+                const kindRu = ev.kind === 'task' ? 'Задача' : (ev.kind === 'project' ? 'Проект' : 'Этап');
+                return '<div class="cal-day-row">' +
+                    '<span class="cal-day-kind">' + kindRu + '</span>' +
+                    '<a class="cal-day-link" href="' + escapeHtml(ev.href) + '">' + escapeHtml(ev.label) + '</a>' +
+                    '</div>';
+            }).join('');
+        }
+
+        function updateMonthTitle() {
+            const d = new Date(viewYear, viewMonth, 1);
+            document.getElementById('calMonthTitle').textContent =
+                d.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+        }
+
+        function shiftMonth(delta) {
+            viewMonth += delta;
+            if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+            if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+            updateMonthTitle();
+            renderGrid();
+            if (selectedDateKey) {
+                const parts = selectedDateKey.split('-').map(Number);
+                if (parts[0] !== viewYear || parts[1] - 1 !== viewMonth) {
+                    selectedDateKey = null;
+                }
+            }
+            renderDayPanel();
+        }
+
+        function showHideAnalyticsButton() {
+            const userRole = localStorage.getItem('user_role');
+            const analyticsMenuItem = document.getElementById('analyticsMenuItem');
+            if (analyticsMenuItem && userRole !== 'ROLE_WORKER') {
+                analyticsMenuItem.style.display = 'block';
+                analyticsMenuItem.onclick = () => window.location.href = '/analytics';
+            }
+        }
+
+        document.getElementById('calPrev').addEventListener('click', () => shiftMonth(-1));
+        document.getElementById('calNext').addEventListener('click', () => shiftMonth(1));
+
+        document.querySelectorAll('.sidebar-item').forEach(item => {
+            item.addEventListener('click', () => {
+                document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+            });
+        });
+
+        (async function init() {
+            const now = new Date();
+            viewYear = now.getFullYear();
+            viewMonth = now.getMonth();
+            selectedDateKey = dateKeyFromDate(now);
+
+            try {
+                await loadUserInfo();
+                showHideAnalyticsButton();
+                eventsByDay = await buildEventsMap();
+                document.getElementById('calendarLoading').style.display = 'none';
+                document.getElementById('calendarRoot').style.display = 'block';
+                updateMonthTitle();
+                renderGrid();
+                renderDayPanel();
+            } catch (e) {
+                console.error(e);
+                document.getElementById('calendarLoading').innerHTML =
+                    '<div class="empty">Не удалось загрузить данные календаря.</div>';
+            }
+        })();
+    </script>
+</body>
+</html>
