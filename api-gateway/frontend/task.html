@@ -43,6 +43,16 @@
                 <label>Дедлайн</label>
                 <input type="date" id="taskDeadline">
             </div>
+            <div class="form-group">
+                <label>Вид работ</label>
+                <select id="editTaskActivityTypeId">
+                    <option value="">Не выбран</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>План, ч</label>
+                <input type="number" id="editTaskPlannedHours" min="0" step="0.5">
+            </div>
             <div class="modal-buttons">
                 <button class="cancel-btn" onclick="closeTaskModal()">Отмена</button>
                 <button class="save-btn" onclick="saveTask()">Сохранить</button>
@@ -97,8 +107,37 @@
                 <button class="status-option" data-status="3">Завершена</button>
                 <button class="status-option" data-status="4">Заблокирована</button>
             </div>
+            <div class="form-group" id="actualHoursGroup" style="display:none;">
+                <label>Факт, ч</label>
+                <input type="number" id="taskActualHours" min="0" step="0.5" placeholder="Сколько часов потрачено">
+            </div>
             <div class="modal-buttons">
                 <button class="cancel-btn" onclick="closeTaskStatusModal()">Отмена</button>
+                <button class="save-btn" id="taskStatusOkBtn" style="display:none;" onclick="confirmTaskStatus()">ОК</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="taskLaborModal" class="modal">
+        <div class="modal-content">
+            <h3>Трудоёмкость</h3>
+            <div class="form-group">
+                <label>Вид работ</label>
+                <select id="laborActivityTypeId">
+                    <option value="">Не выбран</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>План, ч</label>
+                <input type="number" id="laborPlannedHours" min="0" step="0.5">
+            </div>
+            <div class="form-group">
+                <label>Факт, ч</label>
+                <input type="number" id="laborActualHours" min="0" step="0.5">
+            </div>
+            <div class="modal-buttons">
+                <button class="cancel-btn" onclick="closeTaskLaborModal()">Отмена</button>
+                <button class="save-btn" onclick="saveTaskLabor()">Сохранить</button>
             </div>
         </div>
     </div>
@@ -107,6 +146,7 @@
         let currentTaskData = null;
         let currentUserId = null;
         let currentTaskId = null;
+        let pendingTaskStatus = null;
 
         function getTaskIdFromUrl() {
             const path = window.location.pathname;
@@ -152,7 +192,9 @@
 
         async function editTask() {
             if (!currentTaskData) return;
-            
+            await loadActivityTypes();
+            const activityId = currentTaskData.activity_type_id || currentTaskData.activityTypeId || '';
+            fillActivityTypeSelect(document.getElementById('editTaskActivityTypeId'), activityId, true);
             document.getElementById('modalTitle').innerText = 'Редактировать задачу';
             document.getElementById('taskId').value = currentTaskData.id;
             document.getElementById('taskTitle').value = currentTaskData.title || '';
@@ -163,15 +205,21 @@
             } else {
                 document.getElementById('taskDeadline').value = '';
             }
+            const planned = currentTaskData.planned_hours ?? currentTaskData.plannedHours ?? 0;
+            document.getElementById('editTaskPlannedHours').value = planned > 0 ? planned : '';
             document.getElementById('taskModal').classList.add('active');
         }
 
         async function saveTask() {
             const id = document.getElementById('taskId').value;
+            const plannedRaw = document.getElementById('editTaskPlannedHours').value;
+            const plannedHours = plannedRaw ? parseFloat(plannedRaw) : 0;
             const data = {
                 title: document.getElementById('taskTitle').value,
                 description: document.getElementById('taskDescription').value,
-                deadline: document.getElementById('taskDeadline').value ? document.getElementById('taskDeadline').value + 'T00:00:00Z' : null
+                deadline: document.getElementById('taskDeadline').value ? document.getElementById('taskDeadline').value + 'T00:00:00Z' : null,
+                activity_type_id: document.getElementById('editTaskActivityTypeId').value || '',
+                planned_hours: plannedHours > 0 ? plannedHours : 0
             };
             
             if (!data.title) {
@@ -218,12 +266,67 @@
         function openTaskStatusModal() {
             if (!currentTaskData) return;
             currentTaskId = currentTaskData.id;
+            pendingTaskStatus = null;
+            document.getElementById('actualHoursGroup').style.display = 'none';
+            document.getElementById('taskActualHours').value = '';
+            document.getElementById('taskStatusOkBtn').style.display = 'none';
+            document.querySelectorAll('#taskStatusOptions .status-option').forEach(b => b.classList.remove('selected'));
             document.getElementById('taskStatusModal').classList.add('active');
         }
 
         function closeTaskStatusModal() {
             document.getElementById('taskStatusModal').classList.remove('active');
             currentTaskId = null;
+            pendingTaskStatus = null;
+        }
+
+        function confirmTaskStatus() {
+            if (pendingTaskStatus !== null) {
+                changeTaskStatus(pendingTaskStatus);
+            }
+        }
+
+        async function openTaskLaborModal() {
+            if (!currentTaskData) return;
+            await loadActivityTypes();
+            const activityId = currentTaskData.activity_type_id || currentTaskData.activityTypeId || '';
+            fillActivityTypeSelect(document.getElementById('laborActivityTypeId'), activityId, true);
+            const planned = currentTaskData.planned_hours ?? currentTaskData.plannedHours ?? 0;
+            const actual = currentTaskData.actual_hours ?? currentTaskData.actualHours ?? 0;
+            document.getElementById('laborPlannedHours').value = planned > 0 ? planned : '';
+            document.getElementById('laborActualHours').value = actual > 0 ? actual : '';
+            document.getElementById('taskLaborModal').classList.add('active');
+        }
+
+        function closeTaskLaborModal() {
+            document.getElementById('taskLaborModal').classList.remove('active');
+        }
+
+        async function saveTaskLabor() {
+            if (!currentTaskData) return;
+            const plannedRaw = document.getElementById('laborPlannedHours').value;
+            const actualRaw = document.getElementById('laborActualHours').value;
+            const data = {
+                activity_type_id: document.getElementById('laborActivityTypeId').value || '',
+                planned_hours: plannedRaw ? parseFloat(plannedRaw) : 0,
+                actual_hours: actualRaw ? parseFloat(actualRaw) : 0
+            };
+            try {
+                const response = await apiRequest(`/api/tasks/${currentTaskData.id}/labor`, {
+                    method: 'PATCH',
+                    body: JSON.stringify(data)
+                });
+                if (response.ok) {
+                    closeTaskLaborModal();
+                    loadTask();
+                    alert('Трудоёмкость сохранена');
+                } else {
+                    const error = await response.json();
+                    alert('Ошибка: ' + (error.error || 'Неизвестная ошибка'));
+                }
+            } catch (err) {
+                alert('Ошибка соединения');
+            }
         }
 
         async function changeTaskStatus(status) {
@@ -235,11 +338,17 @@
                 3: 'completed',
                 4: 'blocked'
             };
+            const body = { status: statusMap[status] };
+            if (status === 3) {
+                const actualRaw = document.getElementById('taskActualHours').value;
+                const actual = actualRaw ? parseFloat(actualRaw) : 0;
+                if (actual > 0) body.actual_hours = actual;
+            }
             
             try {
                 const response = await apiRequest(`/api/tasks/${currentTaskId}/status`, {
                     method: 'PATCH',
-                    body: JSON.stringify({ status: statusMap[status] })
+                    body: JSON.stringify(body)
                 });
                 if (response.ok) {
                     closeTaskStatusModal();
@@ -328,12 +437,14 @@
                 }
                 const task = await taskResponse.json();
                 currentTaskData = task;
+                await loadActivityTypes();
                 const canDeleteAttachment = currentUserId === task.created_by || currentUserId === task.assigned_to;
                 const canAddAttachment = currentUserId === task.created_by || currentUserId === task.assigned_to;
 
                 const canEdit = currentUserId === task.created_by;
                 const canDelete = currentUserId === task.created_by;
                 const canChangeStatus = true;
+                const canEditLabor = canEdit || currentUserId === task.assigned_to;
 
                 let parentTaskHtml = '';
                 if (task.parent_task_id && task.parent_task_id !== '') {
@@ -396,6 +507,7 @@
                             <h2 style="margin: 0;">${escapeHtml(task.title || 'Без названия')}</h2>
                             <div class="task-action-buttons">
                                 ${canEdit ? `<button class="edit-task-btn" onclick="editTask()">Редактировать</button>` : ''}
+                                ${canEditLabor ? `<button class="edit-task-btn" onclick="openTaskLaborModal()">Трудоёмкость</button>` : ''}
                                 ${canDelete ? `<button class="delete-task-btn" onclick="deleteTask()">Удалить</button>` : ''}
                                 ${canChangeStatus ? `<button class="status-task-btn" onclick="openTaskStatusModal()">Изменить статус</button>` : ''}
                             </div>
@@ -415,6 +527,10 @@
                                 ${getPriorityText(task.priority)}
                             </div>
                             
+                            <div class="info-label">Вид работ</div>
+                            <div class="info-value">${escapeHtml(getActivityTypeName(task.activity_type_id || task.activityTypeId))}</div>
+                            <div class="info-label">План / факт, ч</div>
+                            <div class="info-value">${formatPlanFact(task)}</div>
                             <div class="info-label">Исполнитель</div>
                             <div class="info-value">${escapeHtml(assigneeName)}</div>
                             
@@ -436,7 +552,7 @@
                         </div>
                         ${subtasksHtml}
                         <div class="attachments-section">
-                        <div class="attachments-title">📎 Вложения</div>
+                        <div class="attachments-title"> Вложения</div>
                         <div class="attachments-list" id="attachmentsList"></div>
                         ${canAddAttachment ? `
                             <div class="attachment-upload">
@@ -532,8 +648,22 @@
 
         document.querySelectorAll('#taskStatusOptions .status-option').forEach(btn => {
             btn.addEventListener('click', () => {
-                const status = parseInt(btn.dataset.status);
-                changeTaskStatus(status);
+                const status = parseInt(btn.dataset.status, 10);
+                document.querySelectorAll('#taskStatusOptions .status-option').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                pendingTaskStatus = status;
+                const okBtn = document.getElementById('taskStatusOkBtn');
+                const hoursGroup = document.getElementById('actualHoursGroup');
+                if (status === 3) {
+                    hoursGroup.style.display = 'block';
+                    okBtn.style.display = 'inline-block';
+                    const planned = currentTaskData?.planned_hours ?? currentTaskData?.plannedHours ?? 0;
+                    document.getElementById('taskActualHours').placeholder = planned > 0 ? `План: ${planned} ч` : 'Сколько часов потрачено';
+                } else {
+                    hoursGroup.style.display = 'none';
+                    document.getElementById('taskActualHours').value = '';
+                    okBtn.style.display = 'inline-block';
+                }
             });
         });
 

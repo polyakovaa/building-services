@@ -126,6 +126,21 @@ func (h *Handler) UpdateTaskStatus(ctx context.Context, req *projectv1.UpdateTas
 	return resp, nil
 }
 
+func (h *Handler) UpdateTaskLabor(ctx context.Context, req *projectv1.UpdateTaskLaborRequest) (*projectv1.Task, error) {
+	start := time.Now()
+	log.Printf("[REQUEST] UpdateTaskLabor: id=%s", req.Id)
+
+	resp, err := h.service.UpdateTaskLabor(ctx, req)
+	if err != nil {
+		if grpcErr := errs.Handle(err, "UpdateTaskLabor"); grpcErr != nil {
+			return nil, grpcErr
+		}
+	}
+
+	log.Printf("[SUCCESS] UpdateTaskLabor: duration=%v", time.Since(start))
+	return resp, nil
+}
+
 func (h *Handler) AssignTask(ctx context.Context, req *projectv1.AssignTaskRequest) (*projectv1.Task, error) {
 	start := time.Now()
 	log.Printf("[REQUEST] AssignTask: id: %s", req.TaskId)

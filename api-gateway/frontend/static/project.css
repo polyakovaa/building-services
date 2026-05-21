@@ -38,24 +38,6 @@
     flex: 1;
 }
 
-.info-grid {
-    display: grid;
-    grid-template-columns: 160px 1fr;
-    gap: 16px 0;
-    margin-bottom: 24px;
-}
-
-.info-label {
-    font-weight: 500;
-    color: #64748b;
-    font-size: 14px;
-}
-
-.info-value {
-    color: #1e293b;
-    font-size: 14px;
-}
-
 .action-buttons {
     display: flex;
     gap: 12px;
@@ -75,15 +57,11 @@
     display: inline-block;
 }
 
-.edit-project-btn, .status-project-btn {
-    background: #4a6cf7;
+.edit-project-btn, .status-project-btn,.delete-project-btn  {
+    background: var(--color-primary);
     color: white;
 }
 
-.delete-project-btn {
-    background: #dc2626;
-    color: white;
-}
 
 .section-header {
     display: flex;
@@ -138,25 +116,13 @@
 }
 
 .delete-member-btn {
-    background: #dc2626;
+    background: var(--color-primary);
     color: white;
     border: none;
     border-radius: 6px;
     padding: 4px 10px;
     cursor: pointer;
     font-size: 11px;
-}
-
-.tasks-header {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 16px;
-}
-
-.task-description {
-    font-size: 13px;
-    color: #64748b;
-    margin-top: 4px;
 }
 
 .timeline-header {

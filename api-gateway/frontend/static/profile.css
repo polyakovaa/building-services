@@ -38,7 +38,7 @@
 .avatar-circle {
     width: 100px;
     height: 100px;
-    background: linear-gradient(135deg, #667eea 0%, #c8d2ff 100%);
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -90,51 +90,34 @@
     flex-wrap: wrap;
 }
 
-.form-group {
+.profile-form .form-group {
     width: auto;
     min-width: 280px;
     flex: 0 1 auto;
 }
 
-.form-group label {
-    display: block;
-    font-weight: 500;
-    color: #475569;
+.profile-form .form-group label {
     margin-bottom: 8px;
-    font-size: 14px;
 }
 
-.form-group input,
-.form-group select {
-    width: 280px;
-    min-width: 280px;
-    max-width: 100%;
+.profile-form .form-group input,
+.profile-form .form-group select {
     padding: 10px 14px;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    font-size: 14px;
     background: #f8fafc;
 }
 
-.form-group input:focus {
-    outline: none;
-    border-color: #667eea;
+.profile-form .form-group input:focus {
     background: white;
 }
 
-.form-group input:disabled {
+.profile-form .form-group input:disabled {
     background: #f1f5f9;
     color: #64748b;
 }
 
-.form-group:last-child input {
-    width: 200px;
-    min-width: 200px;
-}
-
 .info-badge {
-    background: #e0e7ff;
-    color: #4a6cf7;
+    background: var(--color-primary-pale);
+    color: var(--color-primary);
     padding: 4px 12px;
     border-radius: 20px;
     font-size: 12px;
@@ -150,7 +133,7 @@
 
 .save-profile-btn {
     padding: 10px 24px;
-    background: #4a6cf7;
+    background: var(--color-primary);
     color: white;
     border: none;
     border-radius: 8px;
@@ -159,7 +142,7 @@
 }
 
 .save-profile-btn:hover {
-    background: #3a5ce0;
+    background: var(--color-primary-hover);
 }
 
 .cancel-edit-btn {
@@ -181,9 +164,16 @@
     background: #e2e8f0;
     margin: 20px 0;
 }
-.form-group:last-child input {
-    width: 100%;
-    min-width: auto;
+
+.profile-form .form-group input,
+.profile-form .form-group select {
+    width: 280px;
+    min-width: 280px;
+}
+
+.profile-form .form-group:last-child input {
+    width: 200px;
+    min-width: 200px;
 }
 
 @media (max-width: 900px) {

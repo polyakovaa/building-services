@@ -134,21 +134,24 @@ func (TaskPriority) EnumDescriptor() ([]byte, []int) {
 }
 
 type Task struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	ProjectId     string                 `protobuf:"bytes,2,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
-	Title         string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
-	Description   string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
-	Status        TaskStatus             `protobuf:"varint,5,opt,name=status,proto3,enum=project.v1.TaskStatus" json:"status,omitempty"`
-	Priority      TaskPriority           `protobuf:"varint,6,opt,name=priority,proto3,enum=project.v1.TaskPriority" json:"priority,omitempty"`
-	Deadline      *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=deadline,proto3" json:"deadline,omitempty"`
-	AssignedTo    string                 `protobuf:"bytes,8,opt,name=assigned_to,json=assignedTo,proto3" json:"assigned_to,omitempty"`
-	CreatedBy     string                 `protobuf:"bytes,9,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
-	ParentTaskId  string                 `protobuf:"bytes,10,opt,name=parent_task_id,json=parentTaskId,proto3" json:"parent_task_id,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ProjectId      string                 `protobuf:"bytes,2,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	Title          string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	Description    string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+	Status         TaskStatus             `protobuf:"varint,5,opt,name=status,proto3,enum=project.v1.TaskStatus" json:"status,omitempty"`
+	Priority       TaskPriority           `protobuf:"varint,6,opt,name=priority,proto3,enum=project.v1.TaskPriority" json:"priority,omitempty"`
+	Deadline       *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=deadline,proto3" json:"deadline,omitempty"`
+	AssignedTo     string                 `protobuf:"bytes,8,opt,name=assigned_to,json=assignedTo,proto3" json:"assigned_to,omitempty"`
+	CreatedBy      string                 `protobuf:"bytes,9,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	ParentTaskId   string                 `protobuf:"bytes,10,opt,name=parent_task_id,json=parentTaskId,proto3" json:"parent_task_id,omitempty"`
+	CreatedAt      *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt      *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	ActivityTypeId string                 `protobuf:"bytes,13,opt,name=activity_type_id,json=activityTypeId,proto3" json:"activity_type_id,omitempty"`
+	PlannedHours   float64                `protobuf:"fixed64,14,opt,name=planned_hours,json=plannedHours,proto3" json:"planned_hours,omitempty"`
+	ActualHours    float64                `protobuf:"fixed64,15,opt,name=actual_hours,json=actualHours,proto3" json:"actual_hours,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Task) Reset() {
@@ -265,17 +268,40 @@ func (x *Task) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Task) GetActivityTypeId() string {
+	if x != nil {
+		return x.ActivityTypeId
+	}
+	return ""
+}
+
+func (x *Task) GetPlannedHours() float64 {
+	if x != nil {
+		return x.PlannedHours
+	}
+	return 0
+}
+
+func (x *Task) GetActualHours() float64 {
+	if x != nil {
+		return x.ActualHours
+	}
+	return 0
+}
+
 type CreateTaskRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ProjectId     string                 `protobuf:"bytes,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
-	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	Deadline      *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=deadline,proto3" json:"deadline,omitempty"`
-	AssignedTo    string                 `protobuf:"bytes,5,opt,name=assigned_to,json=assignedTo,proto3" json:"assigned_to,omitempty"`
-	ParentTaskId  string                 `protobuf:"bytes,6,opt,name=parent_task_id,json=parentTaskId,proto3" json:"parent_task_id,omitempty"`
-	Priority      TaskPriority           `protobuf:"varint,7,opt,name=priority,proto3,enum=project.v1.TaskPriority" json:"priority,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	ProjectId      string                 `protobuf:"bytes,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	Title          string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Description    string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Deadline       *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=deadline,proto3" json:"deadline,omitempty"`
+	AssignedTo     string                 `protobuf:"bytes,5,opt,name=assigned_to,json=assignedTo,proto3" json:"assigned_to,omitempty"`
+	ParentTaskId   string                 `protobuf:"bytes,6,opt,name=parent_task_id,json=parentTaskId,proto3" json:"parent_task_id,omitempty"`
+	Priority       TaskPriority           `protobuf:"varint,7,opt,name=priority,proto3,enum=project.v1.TaskPriority" json:"priority,omitempty"`
+	ActivityTypeId string                 `protobuf:"bytes,8,opt,name=activity_type_id,json=activityTypeId,proto3" json:"activity_type_id,omitempty"`
+	PlannedHours   float64                `protobuf:"fixed64,9,opt,name=planned_hours,json=plannedHours,proto3" json:"planned_hours,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *CreateTaskRequest) Reset() {
@@ -355,6 +381,20 @@ func (x *CreateTaskRequest) GetPriority() TaskPriority {
 		return x.Priority
 	}
 	return TaskPriority_TASK_PRIORITY_UNSPECIFIED
+}
+
+func (x *CreateTaskRequest) GetActivityTypeId() string {
+	if x != nil {
+		return x.ActivityTypeId
+	}
+	return ""
+}
+
+func (x *CreateTaskRequest) GetPlannedHours() float64 {
+	if x != nil {
+		return x.PlannedHours
+	}
+	return 0
 }
 
 type GetTaskRequest struct {
@@ -530,14 +570,16 @@ func (x *ListTasksResponse) GetTotalCount() int32 {
 }
 
 type UpdateTaskRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	Deadline      *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=deadline,proto3" json:"deadline,omitempty"`
-	Priority      TaskPriority           `protobuf:"varint,5,opt,name=priority,proto3,enum=project.v1.TaskPriority" json:"priority,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Title          string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Description    string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Deadline       *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=deadline,proto3" json:"deadline,omitempty"`
+	Priority       TaskPriority           `protobuf:"varint,5,opt,name=priority,proto3,enum=project.v1.TaskPriority" json:"priority,omitempty"`
+	ActivityTypeId string                 `protobuf:"bytes,6,opt,name=activity_type_id,json=activityTypeId,proto3" json:"activity_type_id,omitempty"`
+	PlannedHours   float64                `protobuf:"fixed64,7,opt,name=planned_hours,json=plannedHours,proto3" json:"planned_hours,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *UpdateTaskRequest) Reset() {
@@ -605,10 +647,25 @@ func (x *UpdateTaskRequest) GetPriority() TaskPriority {
 	return TaskPriority_TASK_PRIORITY_UNSPECIFIED
 }
 
+func (x *UpdateTaskRequest) GetActivityTypeId() string {
+	if x != nil {
+		return x.ActivityTypeId
+	}
+	return ""
+}
+
+func (x *UpdateTaskRequest) GetPlannedHours() float64 {
+	if x != nil {
+		return x.PlannedHours
+	}
+	return 0
+}
+
 type UpdateTaskStatusRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Status        TaskStatus             `protobuf:"varint,2,opt,name=status,proto3,enum=project.v1.TaskStatus" json:"status,omitempty"`
+	ActualHours   float64                `protobuf:"fixed64,3,opt,name=actual_hours,json=actualHours,proto3" json:"actual_hours,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -657,6 +714,81 @@ func (x *UpdateTaskStatusRequest) GetStatus() TaskStatus {
 	return TaskStatus_TASK_STATUS_UNSPECIFIED
 }
 
+func (x *UpdateTaskStatusRequest) GetActualHours() float64 {
+	if x != nil {
+		return x.ActualHours
+	}
+	return 0
+}
+
+type UpdateTaskLaborRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ActivityTypeId string                 `protobuf:"bytes,2,opt,name=activity_type_id,json=activityTypeId,proto3" json:"activity_type_id,omitempty"`
+	PlannedHours   float64                `protobuf:"fixed64,3,opt,name=planned_hours,json=plannedHours,proto3" json:"planned_hours,omitempty"`
+	ActualHours    float64                `protobuf:"fixed64,4,opt,name=actual_hours,json=actualHours,proto3" json:"actual_hours,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *UpdateTaskLaborRequest) Reset() {
+	*x = UpdateTaskLaborRequest{}
+	mi := &file_project_v1_task_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateTaskLaborRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateTaskLaborRequest) ProtoMessage() {}
+
+func (x *UpdateTaskLaborRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_project_v1_task_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateTaskLaborRequest.ProtoReflect.Descriptor instead.
+func (*UpdateTaskLaborRequest) Descriptor() ([]byte, []int) {
+	return file_project_v1_task_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *UpdateTaskLaborRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateTaskLaborRequest) GetActivityTypeId() string {
+	if x != nil {
+		return x.ActivityTypeId
+	}
+	return ""
+}
+
+func (x *UpdateTaskLaborRequest) GetPlannedHours() float64 {
+	if x != nil {
+		return x.PlannedHours
+	}
+	return 0
+}
+
+func (x *UpdateTaskLaborRequest) GetActualHours() float64 {
+	if x != nil {
+		return x.ActualHours
+	}
+	return 0
+}
+
 type AssignTaskRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
@@ -667,7 +799,7 @@ type AssignTaskRequest struct {
 
 func (x *AssignTaskRequest) Reset() {
 	*x = AssignTaskRequest{}
-	mi := &file_project_v1_task_proto_msgTypes[7]
+	mi := &file_project_v1_task_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -679,7 +811,7 @@ func (x *AssignTaskRequest) String() string {
 func (*AssignTaskRequest) ProtoMessage() {}
 
 func (x *AssignTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_project_v1_task_proto_msgTypes[7]
+	mi := &file_project_v1_task_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -692,7 +824,7 @@ func (x *AssignTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssignTaskRequest.ProtoReflect.Descriptor instead.
 func (*AssignTaskRequest) Descriptor() ([]byte, []int) {
-	return file_project_v1_task_proto_rawDescGZIP(), []int{7}
+	return file_project_v1_task_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *AssignTaskRequest) GetTaskId() string {
@@ -718,7 +850,7 @@ type DeleteTaskRequest struct {
 
 func (x *DeleteTaskRequest) Reset() {
 	*x = DeleteTaskRequest{}
-	mi := &file_project_v1_task_proto_msgTypes[8]
+	mi := &file_project_v1_task_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -730,7 +862,7 @@ func (x *DeleteTaskRequest) String() string {
 func (*DeleteTaskRequest) ProtoMessage() {}
 
 func (x *DeleteTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_project_v1_task_proto_msgTypes[8]
+	mi := &file_project_v1_task_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -743,7 +875,7 @@ func (x *DeleteTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTaskRequest.ProtoReflect.Descriptor instead.
 func (*DeleteTaskRequest) Descriptor() ([]byte, []int) {
-	return file_project_v1_task_proto_rawDescGZIP(), []int{8}
+	return file_project_v1_task_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *DeleteTaskRequest) GetId() string {
@@ -762,7 +894,7 @@ type ListMyTasksRequest struct {
 
 func (x *ListMyTasksRequest) Reset() {
 	*x = ListMyTasksRequest{}
-	mi := &file_project_v1_task_proto_msgTypes[9]
+	mi := &file_project_v1_task_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -774,7 +906,7 @@ func (x *ListMyTasksRequest) String() string {
 func (*ListMyTasksRequest) ProtoMessage() {}
 
 func (x *ListMyTasksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_project_v1_task_proto_msgTypes[9]
+	mi := &file_project_v1_task_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -787,7 +919,7 @@ func (x *ListMyTasksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMyTasksRequest.ProtoReflect.Descriptor instead.
 func (*ListMyTasksRequest) Descriptor() ([]byte, []int) {
-	return file_project_v1_task_proto_rawDescGZIP(), []int{9}
+	return file_project_v1_task_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ListMyTasksRequest) GetStatusFilter() TaskStatus {
@@ -802,7 +934,7 @@ var File_project_v1_task_proto protoreflect.FileDescriptor
 const file_project_v1_task_proto_rawDesc = "" +
 	"\n" +
 	"\x15project/v1/task.proto\x12\n" +
-	"project.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xe7\x03\n" +
+	"project.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xd9\x04\n" +
 	"\x04Task\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -821,7 +953,10 @@ const file_project_v1_task_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x9f\x02\n" +
+	"updated_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12(\n" +
+	"\x10activity_type_id\x18\r \x01(\tR\x0eactivityTypeId\x12#\n" +
+	"\rplanned_hours\x18\x0e \x01(\x01R\fplannedHours\x12!\n" +
+	"\factual_hours\x18\x0f \x01(\x01R\vactualHours\"\xee\x02\n" +
 	"\x11CreateTaskRequest\x12\x1d\n" +
 	"\n" +
 	"project_id\x18\x01 \x01(\tR\tprojectId\x12\x14\n" +
@@ -831,7 +966,9 @@ const file_project_v1_task_proto_rawDesc = "" +
 	"\vassigned_to\x18\x05 \x01(\tR\n" +
 	"assignedTo\x12$\n" +
 	"\x0eparent_task_id\x18\x06 \x01(\tR\fparentTaskId\x124\n" +
-	"\bpriority\x18\a \x01(\x0e2\x18.project.v1.TaskPriorityR\bpriority\" \n" +
+	"\bpriority\x18\a \x01(\x0e2\x18.project.v1.TaskPriorityR\bpriority\x12(\n" +
+	"\x10activity_type_id\x18\b \x01(\tR\x0eactivityTypeId\x12#\n" +
+	"\rplanned_hours\x18\t \x01(\x01R\fplannedHours\" \n" +
 	"\x0eGetTaskRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x85\x02\n" +
 	"\x10ListTasksRequest\x12\x1d\n" +
@@ -844,16 +981,24 @@ const file_project_v1_task_proto_rawDesc = "" +
 	"\x11ListTasksResponse\x12&\n" +
 	"\x05tasks\x18\x01 \x03(\v2\x10.project.v1.TaskR\x05tasks\x12\x1f\n" +
 	"\vtotal_count\x18\x02 \x01(\x05R\n" +
-	"totalCount\"\xc9\x01\n" +
+	"totalCount\"\x98\x02\n" +
 	"\x11UpdateTaskRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x126\n" +
 	"\bdeadline\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\bdeadline\x124\n" +
-	"\bpriority\x18\x05 \x01(\x0e2\x18.project.v1.TaskPriorityR\bpriority\"Y\n" +
+	"\bpriority\x18\x05 \x01(\x0e2\x18.project.v1.TaskPriorityR\bpriority\x12(\n" +
+	"\x10activity_type_id\x18\x06 \x01(\tR\x0eactivityTypeId\x12#\n" +
+	"\rplanned_hours\x18\a \x01(\x01R\fplannedHours\"|\n" +
 	"\x17UpdateTaskStatusRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12.\n" +
-	"\x06status\x18\x02 \x01(\x0e2\x16.project.v1.TaskStatusR\x06status\"M\n" +
+	"\x06status\x18\x02 \x01(\x0e2\x16.project.v1.TaskStatusR\x06status\x12!\n" +
+	"\factual_hours\x18\x03 \x01(\x01R\vactualHours\"\x9a\x01\n" +
+	"\x16UpdateTaskLaborRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12(\n" +
+	"\x10activity_type_id\x18\x02 \x01(\tR\x0eactivityTypeId\x12#\n" +
+	"\rplanned_hours\x18\x03 \x01(\x01R\fplannedHours\x12!\n" +
+	"\factual_hours\x18\x04 \x01(\x01R\vactualHours\"M\n" +
 	"\x11AssignTaskRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x1f\n" +
 	"\vassignee_id\x18\x02 \x01(\tR\n" +
@@ -874,7 +1019,7 @@ const file_project_v1_task_proto_rawDesc = "" +
 	"\x11TASK_PRIORITY_LOW\x10\x01\x12\x18\n" +
 	"\x14TASK_PRIORITY_MEDIUM\x10\x02\x12\x16\n" +
 	"\x12TASK_PRIORITY_HIGH\x10\x03\x12\x18\n" +
-	"\x14TASK_PRIORITY_URGENT\x10\x042\xab\x04\n" +
+	"\x14TASK_PRIORITY_URGENT\x10\x042\xf4\x04\n" +
 	"\vTaskService\x12=\n" +
 	"\n" +
 	"CreateTask\x12\x1d.project.v1.CreateTaskRequest\x1a\x10.project.v1.Task\x127\n" +
@@ -884,7 +1029,8 @@ const file_project_v1_task_proto_rawDesc = "" +
 	"UpdateTask\x12\x1d.project.v1.UpdateTaskRequest\x1a\x10.project.v1.Task\x12C\n" +
 	"\n" +
 	"DeleteTask\x12\x1d.project.v1.DeleteTaskRequest\x1a\x16.google.protobuf.Empty\x12I\n" +
-	"\x10UpdateTaskStatus\x12#.project.v1.UpdateTaskStatusRequest\x1a\x10.project.v1.Task\x12=\n" +
+	"\x10UpdateTaskStatus\x12#.project.v1.UpdateTaskStatusRequest\x1a\x10.project.v1.Task\x12G\n" +
+	"\x0fUpdateTaskLabor\x12\".project.v1.UpdateTaskLaborRequest\x1a\x10.project.v1.Task\x12=\n" +
 	"\n" +
 	"AssignTask\x12\x1d.project.v1.AssignTaskRequest\x1a\x10.project.v1.Task\x12L\n" +
 	"\vListMyTasks\x12\x1e.project.v1.ListMyTasksRequest\x1a\x1d.project.v1.ListTasksResponseB\x1aZ\x18gen/project/v1;projectv1b\x06proto3"
@@ -902,7 +1048,7 @@ func file_project_v1_task_proto_rawDescGZIP() []byte {
 }
 
 var file_project_v1_task_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_project_v1_task_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_project_v1_task_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_project_v1_task_proto_goTypes = []any{
 	(TaskStatus)(0),                 // 0: project.v1.TaskStatus
 	(TaskPriority)(0),               // 1: project.v1.TaskPriority
@@ -913,24 +1059,25 @@ var file_project_v1_task_proto_goTypes = []any{
 	(*ListTasksResponse)(nil),       // 6: project.v1.ListTasksResponse
 	(*UpdateTaskRequest)(nil),       // 7: project.v1.UpdateTaskRequest
 	(*UpdateTaskStatusRequest)(nil), // 8: project.v1.UpdateTaskStatusRequest
-	(*AssignTaskRequest)(nil),       // 9: project.v1.AssignTaskRequest
-	(*DeleteTaskRequest)(nil),       // 10: project.v1.DeleteTaskRequest
-	(*ListMyTasksRequest)(nil),      // 11: project.v1.ListMyTasksRequest
-	(*timestamppb.Timestamp)(nil),   // 12: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),           // 13: google.protobuf.Empty
+	(*UpdateTaskLaborRequest)(nil),  // 9: project.v1.UpdateTaskLaborRequest
+	(*AssignTaskRequest)(nil),       // 10: project.v1.AssignTaskRequest
+	(*DeleteTaskRequest)(nil),       // 11: project.v1.DeleteTaskRequest
+	(*ListMyTasksRequest)(nil),      // 12: project.v1.ListMyTasksRequest
+	(*timestamppb.Timestamp)(nil),   // 13: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),           // 14: google.protobuf.Empty
 }
 var file_project_v1_task_proto_depIdxs = []int32{
 	0,  // 0: project.v1.Task.status:type_name -> project.v1.TaskStatus
 	1,  // 1: project.v1.Task.priority:type_name -> project.v1.TaskPriority
-	12, // 2: project.v1.Task.deadline:type_name -> google.protobuf.Timestamp
-	12, // 3: project.v1.Task.created_at:type_name -> google.protobuf.Timestamp
-	12, // 4: project.v1.Task.updated_at:type_name -> google.protobuf.Timestamp
-	12, // 5: project.v1.CreateTaskRequest.deadline:type_name -> google.protobuf.Timestamp
+	13, // 2: project.v1.Task.deadline:type_name -> google.protobuf.Timestamp
+	13, // 3: project.v1.Task.created_at:type_name -> google.protobuf.Timestamp
+	13, // 4: project.v1.Task.updated_at:type_name -> google.protobuf.Timestamp
+	13, // 5: project.v1.CreateTaskRequest.deadline:type_name -> google.protobuf.Timestamp
 	1,  // 6: project.v1.CreateTaskRequest.priority:type_name -> project.v1.TaskPriority
 	0,  // 7: project.v1.ListTasksRequest.status_filter:type_name -> project.v1.TaskStatus
 	1,  // 8: project.v1.ListTasksRequest.priority_filter:type_name -> project.v1.TaskPriority
 	2,  // 9: project.v1.ListTasksResponse.tasks:type_name -> project.v1.Task
-	12, // 10: project.v1.UpdateTaskRequest.deadline:type_name -> google.protobuf.Timestamp
+	13, // 10: project.v1.UpdateTaskRequest.deadline:type_name -> google.protobuf.Timestamp
 	1,  // 11: project.v1.UpdateTaskRequest.priority:type_name -> project.v1.TaskPriority
 	0,  // 12: project.v1.UpdateTaskStatusRequest.status:type_name -> project.v1.TaskStatus
 	0,  // 13: project.v1.ListMyTasksRequest.status_filter:type_name -> project.v1.TaskStatus
@@ -938,20 +1085,22 @@ var file_project_v1_task_proto_depIdxs = []int32{
 	4,  // 15: project.v1.TaskService.GetTask:input_type -> project.v1.GetTaskRequest
 	5,  // 16: project.v1.TaskService.ListTasks:input_type -> project.v1.ListTasksRequest
 	7,  // 17: project.v1.TaskService.UpdateTask:input_type -> project.v1.UpdateTaskRequest
-	10, // 18: project.v1.TaskService.DeleteTask:input_type -> project.v1.DeleteTaskRequest
+	11, // 18: project.v1.TaskService.DeleteTask:input_type -> project.v1.DeleteTaskRequest
 	8,  // 19: project.v1.TaskService.UpdateTaskStatus:input_type -> project.v1.UpdateTaskStatusRequest
-	9,  // 20: project.v1.TaskService.AssignTask:input_type -> project.v1.AssignTaskRequest
-	11, // 21: project.v1.TaskService.ListMyTasks:input_type -> project.v1.ListMyTasksRequest
-	2,  // 22: project.v1.TaskService.CreateTask:output_type -> project.v1.Task
-	2,  // 23: project.v1.TaskService.GetTask:output_type -> project.v1.Task
-	6,  // 24: project.v1.TaskService.ListTasks:output_type -> project.v1.ListTasksResponse
-	2,  // 25: project.v1.TaskService.UpdateTask:output_type -> project.v1.Task
-	13, // 26: project.v1.TaskService.DeleteTask:output_type -> google.protobuf.Empty
-	2,  // 27: project.v1.TaskService.UpdateTaskStatus:output_type -> project.v1.Task
-	2,  // 28: project.v1.TaskService.AssignTask:output_type -> project.v1.Task
-	6,  // 29: project.v1.TaskService.ListMyTasks:output_type -> project.v1.ListTasksResponse
-	22, // [22:30] is the sub-list for method output_type
-	14, // [14:22] is the sub-list for method input_type
+	9,  // 20: project.v1.TaskService.UpdateTaskLabor:input_type -> project.v1.UpdateTaskLaborRequest
+	10, // 21: project.v1.TaskService.AssignTask:input_type -> project.v1.AssignTaskRequest
+	12, // 22: project.v1.TaskService.ListMyTasks:input_type -> project.v1.ListMyTasksRequest
+	2,  // 23: project.v1.TaskService.CreateTask:output_type -> project.v1.Task
+	2,  // 24: project.v1.TaskService.GetTask:output_type -> project.v1.Task
+	6,  // 25: project.v1.TaskService.ListTasks:output_type -> project.v1.ListTasksResponse
+	2,  // 26: project.v1.TaskService.UpdateTask:output_type -> project.v1.Task
+	14, // 27: project.v1.TaskService.DeleteTask:output_type -> google.protobuf.Empty
+	2,  // 28: project.v1.TaskService.UpdateTaskStatus:output_type -> project.v1.Task
+	2,  // 29: project.v1.TaskService.UpdateTaskLabor:output_type -> project.v1.Task
+	2,  // 30: project.v1.TaskService.AssignTask:output_type -> project.v1.Task
+	6,  // 31: project.v1.TaskService.ListMyTasks:output_type -> project.v1.ListTasksResponse
+	23, // [23:32] is the sub-list for method output_type
+	14, // [14:23] is the sub-list for method input_type
 	14, // [14:14] is the sub-list for extension type_name
 	14, // [14:14] is the sub-list for extension extendee
 	0,  // [0:14] is the sub-list for field type_name
@@ -968,7 +1117,7 @@ func file_project_v1_task_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_project_v1_task_proto_rawDesc), len(file_project_v1_task_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   10,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

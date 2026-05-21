@@ -95,6 +95,8 @@ func (h *AnalyticsHandler) RegisterRoutes(r *gin.RouterGroup) {
 	r.GET("/analytics/projects/timeline", h.GetProjectTimeline)
 	r.GET("/analytics/trends", h.GetTaskTrends)
 	r.GET("/analytics/productivity", h.GetEmployeeProductivity)
+	r.GET("/analytics/labor", h.GetLaborPlanFact)
+	r.GET("/analytics/freshness", h.GetDataFreshness)
 }
 
 func (h *AnalyticsHandler) GetDashboard(c *gin.Context) {
@@ -355,5 +357,73 @@ func (h *AnalyticsHandler) GetEmployeeProductivity(c *gin.Context) {
 		return
 	}
 
+	c.JSON(http.StatusOK, resp)
+}
+
+func (h *AnalyticsHandler) GetLaborPlanFact(c *gin.Context) {
+	ctx, err := util.GetGRPCContext(c)
+	if err != nil {
+		return
+	}
+
+	scope, err := h.memberProjectScope(c, ctx)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	if !scope.unrestricted && len(scope.projectList) == 0 {
+		c.JSON(http.StatusOK, &analyticsv1.LaborPlanFactResponse{})
+		return
+	}
+
+	qProj := c.Query("project_id")
+	if !scope.unrestricted && qProj != "" && !sliceContains(scope.projectList, qProj) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "project not in scope"})
+		return
+	}
+
+	departmentID := scope.scopedDepartmentID(c.Query("department_id"))
+	fromDate := c.Query("from_date")
+	toDate := c.Query("to_date")
+	groupBy := c.Query("group_by")
+
+	req := &analyticsv1.GetLaborPlanFactRequest{
+		DepartmentId: departmentID,
+		FromDate:     fromDate,
+		ToDate:       toDate,
+		ProjectId:    qProj,
+		GroupBy:      groupBy,
+	}
+	if !scope.unrestricted && qProj == "" {
+		req.ProjectIds = scope.projectCSV
+	}
+
+	resp, err := h.client.GetLaborPlanFact(ctx, req)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+func (h *AnalyticsHandler) GetDataFreshness(c *gin.Context) {
+	ctx, err := util.GetGRPCContext(c)
+	if err != nil {
+		return
+	}
+
+	_, err = h.memberProjectScope(c, ctx)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	resp, err := h.client.GetDataFreshness(ctx, &analyticsv1.GetDataFreshnessRequest{})
+	if err != nil {
+		handleError(c, err)
+		return
+	}
 	c.JSON(http.StatusOK, resp)
 }

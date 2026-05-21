@@ -22,12 +22,14 @@ func (h *ProjectHandler) CreateTask(c *gin.Context) {
 	}
 
 	var req struct {
-		Title        string `json:"title"`
-		Description  string `json:"description"`
-		Deadline     string `json:"deadline"`
-		AssignedTo   string `json:"assigned_to"`
-		ParentTaskId string `json:"parent_task_id"`
-		Priority     string `json:"priority"`
+		Title          string  `json:"title"`
+		Description    string  `json:"description"`
+		Deadline       string  `json:"deadline"`
+		AssignedTo     string  `json:"assigned_to"`
+		ParentTaskId   string  `json:"parent_task_id"`
+		Priority       string  `json:"priority"`
+		ActivityTypeId string  `json:"activity_type_id"`
+		PlannedHours   float64 `json:"planned_hours"`
 	}
 
 	if err := c.BindJSON(&req); err != nil {
@@ -47,13 +49,15 @@ func (h *ProjectHandler) CreateTask(c *gin.Context) {
 	}
 
 	resp, err := h.projectClient.Task.CreateTask(ctx, &projectv1.CreateTaskRequest{
-		ProjectId:    projectID,
-		Title:        req.Title,
-		Description:  req.Description,
-		Deadline:     deadline,
-		AssignedTo:   req.AssignedTo,
-		ParentTaskId: req.ParentTaskId,
-		Priority:     util.ConvertPriority(req.Priority),
+		ProjectId:      projectID,
+		Title:          req.Title,
+		Description:    req.Description,
+		Deadline:       deadline,
+		AssignedTo:     req.AssignedTo,
+		ParentTaskId:   req.ParentTaskId,
+		Priority:       util.ConvertPriority(req.Priority),
+		ActivityTypeId: req.ActivityTypeId,
+		PlannedHours:   req.PlannedHours,
 	})
 
 	if err != nil {
@@ -120,12 +124,14 @@ func (h *ProjectHandler) UpdateTask(c *gin.Context) {
 	}
 
 	var req struct {
-		ProjectId    string `json:"project_id"`
-		Title        string `json:"title"`
-		Description  string `json:"description"`
-		Deadline     string `json:"deadline"`
-		ParentTaskId string `json:"parent_task_id"`
-		Priority     string `json:"priority"`
+		ProjectId      string  `json:"project_id"`
+		Title          string  `json:"title"`
+		Description    string  `json:"description"`
+		Deadline       string  `json:"deadline"`
+		ParentTaskId   string  `json:"parent_task_id"`
+		Priority       string  `json:"priority"`
+		ActivityTypeId string  `json:"activity_type_id"`
+		PlannedHours   float64 `json:"planned_hours"`
 	}
 
 	if err := c.BindJSON(&req); err != nil {
@@ -144,11 +150,13 @@ func (h *ProjectHandler) UpdateTask(c *gin.Context) {
 	}
 
 	resp, err := h.projectClient.Task.UpdateTask(ctx, &projectv1.UpdateTaskRequest{
-		Id:          id,
-		Title:       req.Title,
-		Description: req.Description,
-		Deadline:    deadline,
-		Priority:    util.ConvertPriority(req.Priority),
+		Id:             id,
+		Title:          req.Title,
+		Description:    req.Description,
+		Deadline:       deadline,
+		Priority:       util.ConvertPriority(req.Priority),
+		ActivityTypeId: req.ActivityTypeId,
+		PlannedHours:   req.PlannedHours,
 	})
 
 	if err != nil {
@@ -160,6 +168,42 @@ func (h *ProjectHandler) UpdateTask(c *gin.Context) {
 
 }
 
+func (h *ProjectHandler) UpdateTaskLabor(c *gin.Context) {
+	ctx, err := util.GetGRPCContext(c)
+	if err != nil {
+		return
+	}
+
+	var req struct {
+		ActivityTypeId string  `json:"activity_type_id"`
+		PlannedHours   float64 `json:"planned_hours"`
+		ActualHours    float64 `json:"actual_hours"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	taskID := c.Param("id")
+	if taskID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "task id required"})
+		return
+	}
+
+	resp, err := h.projectClient.Task.UpdateTaskLabor(ctx, &projectv1.UpdateTaskLaborRequest{
+		Id:             taskID,
+		ActivityTypeId: req.ActivityTypeId,
+		PlannedHours:   req.PlannedHours,
+		ActualHours:    req.ActualHours,
+	})
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
 func (h *ProjectHandler) UpdateTaskStatus(c *gin.Context) {
 	ctx, err := util.GetGRPCContext(c)
 	if err != nil {
@@ -167,7 +211,8 @@ func (h *ProjectHandler) UpdateTaskStatus(c *gin.Context) {
 	}
 
 	var req struct {
-		Status string `json:"status"`
+		Status      string  `json:"status"`
+		ActualHours float64 `json:"actual_hours"`
 	}
 
 	if err := c.BindJSON(&req); err != nil {
@@ -182,8 +227,9 @@ func (h *ProjectHandler) UpdateTaskStatus(c *gin.Context) {
 	}
 
 	resp, err := h.projectClient.Task.UpdateTaskStatus(ctx, &projectv1.UpdateTaskStatusRequest{
-		Id:     taskID,
-		Status: util.ConvertTaskStatus(req.Status),
+		Id:          taskID,
+		Status:      util.ConvertTaskStatus(req.Status),
+		ActualHours: req.ActualHours,
 	})
 
 	if err != nil {

@@ -100,11 +100,12 @@ func (c *UserConsumer) Start() error {
 
 func (c *UserConsumer) handleMessage(body []byte) {
 	var event struct {
-		EventType string `json:"event_type"`
-		UserID    string `json:"user_id"`
-		Email     string `json:"email"`
-		FullName  string `json:"full_name"`
-		Role      string `json:"role"`
+		EventType    string `json:"event_type"`
+		UserID       string `json:"user_id"`
+		Email        string `json:"email"`
+		FullName     string `json:"full_name"`
+		Role         string `json:"role"`
+		DepartmentID string `json:"department_id"`
 	}
 
 	log.Printf("recieved message: %s", body)
@@ -116,14 +117,17 @@ func (c *UserConsumer) handleMessage(body []byte) {
 
 	switch event.EventType {
 	case "user.created", "user.updated":
-		user := &user.User{
-			ID:           event.UserID,
-			FullName:     event.FullName,
-			Email:        event.Email,
-			Role:         event.Role,
-			DepartmentID: nil,
+		u := &user.User{
+			ID:       event.UserID,
+			FullName: event.FullName,
+			Email:    event.Email,
+			Role:     event.Role,
 		}
-		if err := c.userRepo.Upsert(context.Background(), user); err != nil {
+		if event.DepartmentID != "" {
+			deptID := event.DepartmentID
+			u.DepartmentID = &deptID
+		}
+		if err := c.userRepo.Upsert(context.Background(), u); err != nil {
 			log.Printf("Failed to upsert user: %v", err)
 		} else {
 			log.Printf("User %s upserted successfully", event.UserID)

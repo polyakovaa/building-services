@@ -4,6 +4,8 @@ import (
 	projectv1 "building-services/gen/project/v1"
 	"building-services/project-service/internal/user"
 	"context"
+	"database/sql"
+	"errors"
 	"log"
 )
 
@@ -54,9 +56,10 @@ type AttachmentRepo interface {
 const (
 	ResourceProject    = "project"
 	ResourceTask       = "task"
-	ResourceDepartment = "department"
-	ResourceUser       = "user"
-	ResourceAttachment = "attachment"
+	ResourceDepartment  = "department"
+	ResourceActivityType = "activity_type"
+	ResourceUser        = "user"
+	ResourceAttachment  = "attachment"
 )
 
 const (
@@ -66,6 +69,7 @@ const (
 	ActionDelete       = "delete"
 	ActionChangeStatus = "change_status"
 	ActionAssign       = "assign"
+	ActionUpdateLabor  = "update_labor"
 	ActionUpload       = "upload"
 	ActionDownload     = "download"
 	ActionAssignToDept = "assign_to_dept"
@@ -110,6 +114,10 @@ func (c *PermissionChecker) Check(ctx context.Context, userID string, resourceTy
 		return result, err
 	case ResourceAttachment:
 		return c.checkAttachment(ctx, user, resourceID, action)
+	case ResourceDepartment:
+		return c.checkDepartment(ctx, user, resourceID, action)
+	case ResourceActivityType:
+		return c.checkActivityType(ctx, user, action)
 	}
 
 	log.Printf("[DEBUG] Check: unsupported resource type %s - access denied", resourceType)
@@ -139,10 +147,12 @@ func (c *PermissionChecker) checkProject(ctx context.Context, user *user.User, p
 		if user.Role == RoleGIP {
 			member, err := c.memberRepo.IsProjectMember(ctx, projectID, user.ID)
 			if err != nil {
-				return false, nil
+				if errors.Is(err, sql.ErrNoRows) {
+					return false, nil
+				}
+				return false, err
 			}
-			allowed := member != nil
-			return allowed, nil
+			return member != nil, nil
 		}
 		if user.Role == RoleDepartmentManager {
 			if user.DepartmentID == nil {
@@ -233,6 +243,20 @@ func (c *PermissionChecker) checkTask(ctx context.Context, user *user.User, task
 		}
 		return c.taskRepo.IsAssignee(ctx, taskID, user.ID)
 
+	case ActionUpdateLabor:
+		projectID, err := c.taskRepo.GetProjectID(ctx, taskID)
+		if err != nil {
+			return false, err
+		}
+		ok, err := c.checkProject(ctx, user, projectID, ActionEdit)
+		if err != nil {
+			return false, err
+		}
+		if ok {
+			return true, nil
+		}
+		return c.taskRepo.IsAssignee(ctx, taskID, user.ID)
+
 	case ActionAssign:
 		projectID, err := c.taskRepo.GetProjectID(ctx, taskID)
 		if err != nil {
@@ -266,6 +290,17 @@ func (c *PermissionChecker) checkAttachment(ctx context.Context, user *user.User
 		}
 		return c.checkTask(ctx, user, taskID, ActionEdit)
 
+	default:
+		return false, nil
+	}
+}
+
+func (c *PermissionChecker) checkActivityType(ctx context.Context, user *user.User, action string) (bool, error) {
+	switch action {
+	case ActionCreate, ActionEdit, ActionDelete:
+		return user.Role == RoleDirector || user.Role == RoleGIP || user.Role == RoleAdmin, nil
+	case ActionView:
+		return true, nil
 	default:
 		return false, nil
 	}

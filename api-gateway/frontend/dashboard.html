@@ -36,6 +36,9 @@
                     <li class="sidebar-item" data-page="analytics" id="analyticsMenuItem" style="display: none;">
                         <span>Аналитика</span>
                     </li>
+                    <li class="sidebar-item" data-page="tools" id="toolsMenuItem" style="display: none;">
+                        <span>Инструменты</span>
+                    </li>
                     <li class="sidebar-item" data-page="notifications" onclick="window.location.href='/notifications'">
                         <span>Уведомления</span>
                         <span class="notification-badge" id="notifCount"></span>
@@ -231,9 +234,6 @@
                 }
             }
         }
-
-        
-
         async function loadDashboardData() {
             try {
                 await Promise.all([
@@ -249,18 +249,9 @@
 
         function showHideAnalyticsButton() {
             const userRole = localStorage.getItem('user_role');
-            const analyticsMenuItem = document.getElementById('analyticsMenuItem');
-            
-            if (analyticsMenuItem) {
-                // Показать аналитику для всех ролей кроме ROLE_WORKER
-                if (userRole !== 'ROLE_WORKER') {
-                    analyticsMenuItem.style.display = 'block';
-                    analyticsMenuItem.onclick = () => window.location.href='/analytics';
-                }
-            }
+            if (typeof updateAnalyticsMenu === 'function') updateAnalyticsMenu(userRole);
+            if (typeof updateToolsMenu === 'function') updateToolsMenu(userRole);
         }
-
-        
         document.querySelectorAll('.sidebar-item').forEach(item => {
             item.addEventListener('click', () => {
                 const page = item.dataset.page;

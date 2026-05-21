@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package project.v1;
+
+
+option go_package = "gen/project/v1;projectv1";
+
+service ActivityTypeService {
+    rpc ListActivityTypes(ListActivityTypesRequest) returns (ListActivityTypesResponse);
+    rpc CreateActivityType(CreateActivityTypeRequest) returns (ActivityType);
+}
+
+message ActivityType {
+    string id = 1;
+    string name = 2;
+    int32 sort_order = 3;
+}
+
+message ListActivityTypesRequest {}
+
+message ListActivityTypesResponse {
+    repeated ActivityType activity_types = 1;
+}
+
+message CreateActivityTypeRequest {
+    string name = 1;
+}

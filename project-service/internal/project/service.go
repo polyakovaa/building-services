@@ -163,13 +163,13 @@ func (s *Service) GetProject(ctx context.Context, req *projectv1.GetProjectReque
 		return nil, fmt.Errorf("failed to get user_id: %w", err)
 	}
 
-	ok, err := s.authz.Check(ctx, userID, authz.ResourceProject, "", authz.ActionView)
-	if err != nil || !ok {
-		return nil, errs.ErrNoPermission
-	}
-
 	if req.Id == "" {
 		return nil, fmt.Errorf("%w: project id required", errs.ErrInvalidInput)
+	}
+
+	ok, err := s.authz.Check(ctx, userID, authz.ResourceProject, req.Id, authz.ActionView)
+	if err != nil || !ok {
+		return nil, errs.ErrNoPermission
 	}
 
 	project, err := s.projectRepo.FindByID(ctx, req.Id)
@@ -228,6 +228,25 @@ func (s *Service) UpdateProject(ctx context.Context, req *projectv1.UpdateProjec
 		return nil, err
 	}
 
+	if s.events != nil {
+		event := map[string]interface{}{
+			"event_type":     "project.updated",
+			"occurred_at":    time.Now().UTC().Format(time.RFC3339Nano),
+			"actor_user_id":  userID,
+			"project_id":     updatedProject.Id,
+			"project_name":   updatedProject.Name,
+			"description":    updatedProject.Description,
+			"object_address": updatedProject.ObjectAddress,
+			"customer":       updatedProject.Customer,
+			"start_date":     tsToFormat(updatedProject.StartDate),
+			"end_date":       tsToFormat(updatedProject.EndDate),
+			"status":         int32(updatedProject.Status),
+		}
+		if err := s.events.Publish(ctx, "project.updated", event); err != nil {
+			log.Printf("Failed to publish project.updated: %v", err)
+		}
+	}
+
 	return updatedProject, nil
 }
 
@@ -284,13 +303,18 @@ func (s *Service) ChangeProjectStatus(ctx context.Context, req *projectv1.Change
 		return nil, fmt.Errorf("failed to update project status: %w", err)
 	}
 
+	updatedProject, err := s.projectRepo.FindByID(ctx, req.Id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get updated project: %w", err)
+	}
+
 	if s.events != nil {
 		event := map[string]interface{}{
 			"event_type":    "project.status_changed",
 			"occurred_at":   time.Now().UTC().Format(time.RFC3339Nano),
 			"actor_user_id": userID,
 			"project_id":    req.Id,
-			"project_name":  existingProject.Name,
+			"project_name":  updatedProject.Name,
 			"from_status":   int32(existingProject.Status),
 			"to_status":     int32(req.Status),
 		}
@@ -299,7 +323,7 @@ func (s *Service) ChangeProjectStatus(ctx context.Context, req *projectv1.Change
 		}
 	}
 
-	return s.projectRepo.FindByID(ctx, req.Id)
+	return updatedProject, nil
 }
 
 func (s *Service) ListProjects(ctx context.Context, req *projectv1.ListProjectsRequest) (*projectv1.ListProjectsResponse, error) {

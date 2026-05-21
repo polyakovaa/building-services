@@ -141,12 +141,50 @@ func (r *Repository) UpsertProject(projectID, projectName string, startDate, end
 	const q = `INSERT INTO projects (project_id, project_name, start_date, end_date)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (project_id) DO UPDATE SET
-			project_name = EXCLUDED.project_name,
+			project_name = COALESCE(NULLIF(EXCLUDED.project_name, ''), projects.project_name),
 			start_date = COALESCE(EXCLUDED.start_date, projects.start_date),
 			end_date = COALESCE(EXCLUDED.end_date, projects.end_date),
 			updated_at = CURRENT_TIMESTAMP`
 	_, err := r.db.Exec(q, projectID, projectName, startDate, endDate)
 	return err
+}
+
+func (r *Repository) UpsertDepartment(id, name string) error {
+	if id == "" || name == "" {
+		return nil
+	}
+	_, err := r.db.Exec(`INSERT INTO departments (id, name) VALUES ($1, $2)
+		ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`, id, name)
+	return err
+}
+
+func (r *Repository) UpsertActivityType(id, name string, sortOrder int32) error {
+	if id == "" || name == "" {
+		return nil
+	}
+	_, err := r.db.Exec(`INSERT INTO activity_types (id, name, sort_order) VALUES ($1, $2, $3)
+		ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, sort_order = EXCLUDED.sort_order`,
+		id, name, sortOrder)
+	return err
+}
+
+func (r *Repository) GetDataFreshness() (lastEventAt time.Time, tasksCount int32, err error) {
+	const q = `
+		SELECT
+			GREATEST(
+				COALESCE((SELECT MAX(occurred_at) FROM events_raw), 'epoch'::timestamptz),
+				COALESCE((SELECT MAX(updated_at) FROM task_analytics), 'epoch'::timestamptz)
+			),
+			(SELECT COUNT(*)::int FROM task_analytics)`
+	var last sql.NullTime
+	err = r.db.QueryRow(q).Scan(&last, &tasksCount)
+	if err != nil {
+		return time.Time{}, 0, err
+	}
+	if last.Valid && !last.Time.IsZero() && last.Time.Year() > 1970 {
+		lastEventAt = last.Time
+	}
+	return lastEventAt, tasksCount, nil
 }
 
 func nullIfEmpty(s string) interface{} {

@@ -42,6 +42,7 @@ type MemberRepo interface {
 	IsProjectMember(ctx context.Context, projectID, userID string) (*projectv1.ProjectMember, error)
 	Remove(ctx context.Context, projectID, userID string) error
 	GetProjectMembers(ctx context.Context, projectID string) ([]*projectv1.ProjectMember, error)
+	SyncDepartmentFromUser(ctx context.Context, projectID, userID string) error
 }
 type UserRepo interface {
 	FindByID(ctx context.Context, id string) (*user.User, error)
@@ -69,13 +70,21 @@ func (s *Service) AddMember(ctx context.Context, req *projectv1.AddMemberRequest
 		JoinedAt:  timestamppb.Now(),
 	}
 
-	if user.DepartmentID != nil {
+	if user.DepartmentID != nil && *user.DepartmentID != "" {
 		member.DepartmentId = *user.DepartmentID
 	}
 
 	err = s.memberRepo.Add(ctx, member)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add member: %w", err)
+	}
+	if member.DepartmentId == "" {
+		if err := s.memberRepo.SyncDepartmentFromUser(ctx, req.ProjectId, req.UserId); err != nil {
+			log.Printf("sync member department: %v", err)
+		}
+		if updated, err := s.memberRepo.IsProjectMember(ctx, req.ProjectId, req.UserId); err == nil && updated != nil {
+			member.DepartmentId = updated.DepartmentId
+		}
 	}
 
 	actorUserID, err := util.GetFromContext(ctx, "user_id")

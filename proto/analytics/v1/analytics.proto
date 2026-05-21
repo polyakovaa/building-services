@@ -3,9 +3,7 @@ syntax = "proto3";
 package analytics.v1;
 option go_package = "gen/analytics/v1;analyticsv1";
 
-// PROJECTS: метрики только в рамках project_id / project_ids (и опционально department_id по задаче).
-// ORGANIZATION: срез по отделам компании — без фильтра по проектам, если gateway не передал project_ids (например, директор);
-//   для остальных ролей gateway по-прежнему передаёт project_ids при необходимости.
+
 enum AnalyticsSummaryScope {
     ANALYTICS_SUMMARY_SCOPE_UNSPECIFIED = 0;
     ANALYTICS_SUMMARY_SCOPE_PROJECTS = 1;
@@ -18,6 +16,8 @@ service AnalyticsService {
     rpc GetProjectTimelineControl(GetProjectTimelineRequest) returns (ProjectTimelineResponse);
     rpc GetTaskTrends(GetTaskTrendsRequest) returns (TaskTrendsResponse);
     rpc GetEmployeeProductivity(GetEmployeeProductivityRequest) returns (EmployeeProductivityResponse);
+    rpc GetLaborPlanFact(GetLaborPlanFactRequest) returns (LaborPlanFactResponse);
+    rpc GetDataFreshness(GetDataFreshnessRequest) returns (DataFreshnessResponse);
 }
 
 
@@ -26,7 +26,6 @@ message GetDashboardRequest {
     string from_date = 2;
     string to_date = 3;
     string project_id = 4;
-    // Comma-separated project UUIDs: membership scope (gateway sets for non-director).
     string project_ids = 5;
 }
 
@@ -39,6 +38,25 @@ message DashboardResponse {
     repeated DepartmentWorkload department_workload = 5;
     repeated WeeklyTrend weekly_trend = 7;
     double on_time_rate = 8;
+    DashboardPeriodComparison period_comparison = 9;
+}
+
+message DashboardPeriodComparison {
+    int32 total_tasks_prev = 1;
+    double total_tasks_delta_pct = 2;
+    int32 overdue_tasks_prev = 3;
+    double overdue_tasks_delta_pct = 4;
+    double completion_rate_prev = 5;
+    double completion_rate_delta_pct = 6;
+    double on_time_rate_prev = 7;
+    double on_time_rate_delta_pct = 8;
+}
+
+message GetDataFreshnessRequest {}
+
+message DataFreshnessResponse {
+    string last_event_at = 1;
+    int32 tasks_count = 2;
 }
 
 message GetDepartmentWorkloadRequest {
@@ -143,4 +161,37 @@ message EmployeeProductivity {
     double avg_cycle_time = 6;
     double completion_rate = 7;
     double on_time_rate = 8;
+}
+
+message GetLaborPlanFactRequest {
+    string department_id = 1;
+    string from_date = 2;
+    string to_date = 3;
+    string project_id = 4;
+    string project_ids = 5;
+    string group_by = 6;
+}
+
+message LaborPlanFactResponse {
+    repeated LaborPlanFactRow rows = 1;
+    double total_planned_hours = 2;
+    double total_actual_hours = 3;
+    double total_deviation_percent = 4;
+    int32 tasks_with_plan = 5;
+    int32 tasks_comparable = 6;
+    int32 overrun_tasks = 7;
+    double avg_actual_per_completed = 8;
+}
+
+message LaborPlanFactRow {
+    string group_id = 1;
+    string group_name = 2;
+    double planned_hours = 3;
+    double actual_hours = 4;
+    int32 task_count = 5;
+    double deviation_percent = 6;
+    int32 tasks_with_plan = 7;
+    int32 tasks_comparable = 8;
+    int32 overrun_tasks = 9;
+    double avg_actual_per_completed = 10;
 }

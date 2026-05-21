@@ -130,6 +130,9 @@ func serveFrontend(r *gin.Engine) {
 	r.GET("/analytics", func(c *gin.Context) {
 		c.File("./frontend/analytics.html")
 	})
+	r.GET("/tools", func(c *gin.Context) {
+		c.File("./frontend/tools.html")
+	})
 	r.GET("/notifications", func(c *gin.Context) {
 		c.File("./frontend/notifications.html")
 	})

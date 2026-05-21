@@ -95,7 +95,7 @@ func (r *Repository) GetDepartmentWorkload(f AnalyticsFilter, days int) ([]*anal
 			ORDER BY department_name`,
 			assigneeDepartmentSQL, deptName,
 			wipPredSQL, completedPred, taskOverdueSQL, completedPred,
-			completedPred, wipPredSQL, completedOnTimeSQL,
+			completedPred, wipPredSQL, completedPred,
 			completedOnTimeSQL, taskOverdueSQL, completedOnTimeSQL,
 			usersJoinSQL, assigneeDepartmentSQL, taskWhereSQL, deptName)
 
@@ -131,7 +131,7 @@ func (r *Repository) GetDepartmentWorkload(f AnalyticsFilter, days int) ([]*anal
 		ORDER BY department_name`,
 		assigneeDepartmentSQL, deptName,
 		wipPredSQL, completedPred, overduePred, completedPred,
-		completedPred, wipPredSQL, completedOnTimeSQL,
+		completedPred, wipPredSQL, completedPred,
 		completedOnTimeSQL, overduePred, completedOnTimeSQL,
 		usersJoinSQL, assigneeDepartmentSQL, taskScopeSQL, deptName)
 

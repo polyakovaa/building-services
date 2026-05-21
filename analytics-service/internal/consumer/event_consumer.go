@@ -71,7 +71,10 @@ func NewEventConsumer(repo *repository.Repository, svc *service.Service, amqpURL
 	eventTypes := []string{
 		"task.*",
 		"project.created",
+		"project.updated",
 		"project.status_changed",
+		"department.created",
+		"activity_type.created",
 	}
 	for _, routingKey := range eventTypes {
 		err = ch.QueueBind(q.Name, routingKey, "project.events", false, nil)
@@ -102,19 +105,16 @@ func (c *EventConsumer) Start() error {
 	}
 
 	log.Printf("Analytics Consumer started, waiting for messages...")
-
 	go func() {
 		for msg := range msgs {
 			c.handleMessage(msg.Body)
 		}
 	}()
-
 	return nil
 }
 
 func (c *EventConsumer) handleMessage(body []byte) {
 	log.Printf("Received message from RabbitMQ")
-
 	var event map[string]interface{}
 	if err := json.Unmarshal(body, &event); err != nil {
 		log.Printf("Failed to unmarshal: %v", err)

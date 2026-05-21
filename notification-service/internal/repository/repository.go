@@ -142,6 +142,16 @@ func (r *Repository) UpsertNotificationTask(ctx context.Context, task Notificati
 	return err
 }
 
+func (r *Repository) UpdateProjectName(ctx context.Context, projectID, projectName string) error {
+	if projectID == "" || projectName == "" {
+		return nil
+	}
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE notification_tasks SET project_name = $2, updated_at = CURRENT_TIMESTAMP WHERE project_id = $1`,
+		projectID, projectName)
+	return err
+}
+
 func (r *Repository) UpdateTaskAssignee(ctx context.Context, taskID, assigneeUserID string) error {
 	_, err := r.db.ExecContext(ctx, `UPDATE notification_tasks SET assignee_user_id = $2, updated_at = CURRENT_TIMESTAMP WHERE task_id = $1`, taskID, nullIfEmpty(assigneeUserID))
 	return err
@@ -175,8 +185,8 @@ func (r *Repository) ListUpcomingDeadlineTasks(ctx context.Context, now, until t
 		FROM notification_tasks
 		WHERE assignee_user_id IS NOT NULL
 		AND deadline IS NOT NULL
-		AND deadline > $1
-		AND deadline <= $2
+		AND (deadline AT TIME ZONE 'UTC')::date >= ($1 AT TIME ZONE 'UTC')::date
+		AND (deadline AT TIME ZONE 'UTC')::date <= ($2 AT TIME ZONE 'UTC')::date
 		AND status <> 3`
 	return r.listDeadlineTasks(ctx, query, now, until)
 }
@@ -187,7 +197,7 @@ func (r *Repository) ListOverdueTasks(ctx context.Context, now time.Time) ([]Not
 		FROM notification_tasks
 		WHERE assignee_user_id IS NOT NULL
 		AND deadline IS NOT NULL
-		AND deadline < $1
+		AND (deadline AT TIME ZONE 'UTC')::date < ($1 AT TIME ZONE 'UTC')::date
 		AND status <> 3`
 	return r.listDeadlineTasks(ctx, query, now)
 }

@@ -65,6 +65,8 @@ func NewEventConsumer(repo *repository.Repository, svc *service.Service, amqpURL
 		"task.assigned",
 		"task.deadline_changed",
 		"task.status_changed",
+		"task.updated",
+		"project.updated",
 		"project.member_added",
 	}
 	for _, routingKey := range eventTypes {

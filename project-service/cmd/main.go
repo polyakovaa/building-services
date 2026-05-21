@@ -6,6 +6,7 @@ import (
 	"building-services/project-service/internal/attachment"
 	"building-services/project-service/internal/authz"
 	"building-services/project-service/internal/consumer"
+	"building-services/project-service/internal/activity"
 	department "building-services/project-service/internal/departmnet"
 	"building-services/project-service/internal/events"
 	"building-services/project-service/internal/member"
@@ -43,6 +44,7 @@ func main() {
 	taskRepo := task.NewRepository(db)
 	attachmentRepo := attachment.NewRepository(db)
 	departmentRepo := department.NewRepository(db)
+	activityRepo := activity.NewRepository(db)
 	checker := authz.NewPermissionChecker(userRepo, memberRepo, taskRepo, attachmentRepo, departmentRepo)
 
 	eventPublisher, err := events.NewEventPublisher("amqp://guest:guest@rabbitmq:5672/")
@@ -54,9 +56,9 @@ func main() {
 	projectService := project.NewService(projectRepo, memberRepo, userRepo, timelineRepo, checker, eventPublisher)
 	memberService := member.NewService(projectRepo, memberRepo, userRepo, eventPublisher)
 	timelineService := timeline.NewService(timelineRepo, projectRepo)
-	taskService := task.NewService(taskRepo, projectRepo, userRepo, checker, eventPublisher)
+	taskService := task.NewService(taskRepo, projectRepo, userRepo, activityRepo, checker, eventPublisher)
 	attachmentService := attachment.NewService(taskRepo, attachmentRepo, checker)
-	departmentService := department.NewService(departmentRepo, userRepo, checker)
+	departmentService := department.NewService(departmentRepo, userRepo, checker, eventPublisher)
 
 	projectHandler := project.NewHandler(projectService)
 	memberHandler := member.NewHandler(memberService)
@@ -64,6 +66,8 @@ func main() {
 	taskHandler := task.NewHandler(taskService)
 	attachmentHandler := attachment.NewHandler(attachmentService)
 	departmentHandler := department.NewHandler(departmentService)
+	activityService := activity.NewService(activityRepo, checker, eventPublisher)
+	activityHandler := activity.NewHandler(activityService)
 
 	userConsumer, err := consumer.NewUserConsumer(userRepo, "amqp://guest:guest@rabbitmq:5672/")
 	if err != nil {
@@ -87,6 +91,7 @@ func main() {
 	projectv1.RegisterTaskServiceServer(grpcServer, taskHandler)
 	projectv1.RegisterAttachmentServiceServer(grpcServer, attachmentHandler)
 	projectv1.RegisterDepartmentServiceServer(grpcServer, departmentHandler)
+	projectv1.RegisterActivityTypeServiceServer(grpcServer, activityHandler)
 
 	lis, err := net.Listen("tcp", ":"+cfg.Server.Port)
 	if err != nil {

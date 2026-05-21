@@ -79,3 +79,27 @@ func (h *Handler) GetEmployeeProductivity(ctx context.Context, req *analyticsv1.
 	log.Printf("[SUCCESS] GetEmployeeProductivity: count=%d, duration=%v", len(resp.Employees), time.Since(start))
 	return resp, nil
 }
+
+func (h *Handler) GetLaborPlanFact(ctx context.Context, req *analyticsv1.GetLaborPlanFactRequest) (*analyticsv1.LaborPlanFactResponse, error) {
+	start := time.Now()
+	log.Printf("[REQUEST] GetLaborPlanFact: department_id=%s project_id=%s group_by=%s", req.DepartmentId, req.ProjectId, req.GroupBy)
+	resp, err := h.service.GetLaborPlanFact(req)
+	if err != nil {
+		log.Printf("[ERROR] GetLaborPlanFact failed: %v", err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	log.Printf("[SUCCESS] GetLaborPlanFact: rows=%d duration=%v", len(resp.Rows), time.Since(start))
+	return resp, nil
+}
+
+func (h *Handler) GetDataFreshness(ctx context.Context, req *analyticsv1.GetDataFreshnessRequest) (*analyticsv1.DataFreshnessResponse, error) {
+	start := time.Now()
+	log.Printf("[REQUEST] GetDataFreshness")
+	resp, err := h.service.GetDataFreshness(req)
+	if err != nil {
+		log.Printf("[ERROR] GetDataFreshness failed: %v", err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	log.Printf("[SUCCESS] GetDataFreshness: duration=%v", time.Since(start))
+	return resp, nil
+}

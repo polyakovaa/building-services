@@ -13,7 +13,10 @@
 <body class="dashboard-body">
     <div class="dashboard-container">
         <div class="header">
-            <h1>Аналитика</h1>
+            <div>
+                <h1>Аналитика</h1>
+                <p class="data-freshness" id="dataFreshness">Данные обновляются…</p>
+            </div>
             <div class="user-info">
                 <span class="user-name" id="userName"></span>
                 <span class="user-role" id="userRole"></span>
@@ -39,6 +42,9 @@
                     <li class="sidebar-item active" data-page="analytics">
                         <span>Аналитика</span>
                     </li>
+                    <li class="sidebar-item" data-page="tools" id="toolsMenuItem" style="display: none;" onclick="window.location.href='/tools'">
+                        <span>Инструменты</span>
+                    </li>
                     <li class="sidebar-item" data-page="notifications" onclick="window.location.href='/notifications'">
                         <span>Уведомления</span>
                         <span class="notification-badge" id="notifCount"></span>
@@ -50,7 +56,6 @@
             </div>
 
             <div class="main-content" id="mainContent">
-                <!-- Фильтры -->
                 <div class="analytics-filters">
                     <div class="filter-tabs">
                         <button class="filter-tab active" data-period="week">Неделя</button>
@@ -59,7 +64,6 @@
                     </div>
                 </div>
 
-                <!-- Основные метрики -->
                 <div class="analytics-section">
                     <h2 class="section-title">Основные показатели</h2>
                     <div class="stats-grid">
@@ -85,8 +89,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Графики и тренды -->
                 <div class="analytics-charts">
                     <div class="chart-container">
                         <h3 class="chart-title">Тренды задач</h3>
@@ -95,7 +97,7 @@
                             <div class="loading">Загрузка данных...</div>
                         </div>
                     </div>
-                    
+
                     <div class="chart-container">
                         <h3 class="chart-title">Нагрузка отделов</h3>
                         <div class="chart-wrapper">
@@ -105,7 +107,41 @@
                     </div>
                 </div>
 
-                <!-- Таблицы с детальными данными -->
+                <div class="analytics-section">
+                    <h2 class="section-title">Трудоёмкость: план / факт</h2>
+                    <div class="labor-tabs">
+                        <button type="button" class="filter-tab active" data-labor-group="total">Итого</button>
+                        <button type="button" class="filter-tab" data-labor-group="department">По отделам</button>
+                        <button type="button" class="filter-tab" data-labor-group="activity">По видам работ</button>
+                        <button type="button" class="filter-tab" data-labor-group="project">По проектам</button>
+                    </div>
+                    <div class="labor-summary" id="laborSummary">—</div>
+                    <div class="labor-kpi-grid" id="laborKpiGrid"></div>
+                    <div class="chart-container labor-chart-container" id="laborChartSection" style="display:none;">
+                        <h3 class="chart-title">План и факт по группам</h3>
+                        <div class="chart-wrapper chart-wrapper-sm">
+                            <canvas id="laborPlanFactChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="analytics-table" id="laborTable">
+                            <thead>
+                                <tr>
+                                    <th>Группа</th>
+                                    <th>План, ч</th>
+                                    <th>Факт, ч</th>
+                                    <th>Откл., %</th>
+                                    <th>Перерасход</th>
+                                    <th>Ср. факт (закр.)</th>
+                                    <th>С планом</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="7" class="loading">Загрузка...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
                 <div class="analytics-tables">
                     <div class="table-section">
                         <h3 class="section-title">Продуктивность сотрудников</h3>
@@ -152,20 +188,18 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Нагрузка отделов -->
                 <div class="analytics-section">
                     <h2 class="section-title">Детальная нагрузка отделов</h2>
                     <div class="department-grid" id="departmentGrid">
                         <div class="loading">Загрузка данных...</div>
                     </div>
                 </div>
+
             </div>
         </div>
     </div>
 
     <script>
-        // Инициализация страницы аналитики
         document.addEventListener('DOMContentLoaded', async function() {
             await loadUserInfo();
             await initializeAnalytics();

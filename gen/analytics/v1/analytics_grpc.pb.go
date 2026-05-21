@@ -24,6 +24,8 @@ const (
 	AnalyticsService_GetProjectTimelineControl_FullMethodName = "/analytics.v1.AnalyticsService/GetProjectTimelineControl"
 	AnalyticsService_GetTaskTrends_FullMethodName             = "/analytics.v1.AnalyticsService/GetTaskTrends"
 	AnalyticsService_GetEmployeeProductivity_FullMethodName   = "/analytics.v1.AnalyticsService/GetEmployeeProductivity"
+	AnalyticsService_GetLaborPlanFact_FullMethodName          = "/analytics.v1.AnalyticsService/GetLaborPlanFact"
+	AnalyticsService_GetDataFreshness_FullMethodName          = "/analytics.v1.AnalyticsService/GetDataFreshness"
 )
 
 // AnalyticsServiceClient is the client API for AnalyticsService service.
@@ -35,6 +37,8 @@ type AnalyticsServiceClient interface {
 	GetProjectTimelineControl(ctx context.Context, in *GetProjectTimelineRequest, opts ...grpc.CallOption) (*ProjectTimelineResponse, error)
 	GetTaskTrends(ctx context.Context, in *GetTaskTrendsRequest, opts ...grpc.CallOption) (*TaskTrendsResponse, error)
 	GetEmployeeProductivity(ctx context.Context, in *GetEmployeeProductivityRequest, opts ...grpc.CallOption) (*EmployeeProductivityResponse, error)
+	GetLaborPlanFact(ctx context.Context, in *GetLaborPlanFactRequest, opts ...grpc.CallOption) (*LaborPlanFactResponse, error)
+	GetDataFreshness(ctx context.Context, in *GetDataFreshnessRequest, opts ...grpc.CallOption) (*DataFreshnessResponse, error)
 }
 
 type analyticsServiceClient struct {
@@ -95,6 +99,26 @@ func (c *analyticsServiceClient) GetEmployeeProductivity(ctx context.Context, in
 	return out, nil
 }
 
+func (c *analyticsServiceClient) GetLaborPlanFact(ctx context.Context, in *GetLaborPlanFactRequest, opts ...grpc.CallOption) (*LaborPlanFactResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LaborPlanFactResponse)
+	err := c.cc.Invoke(ctx, AnalyticsService_GetLaborPlanFact_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *analyticsServiceClient) GetDataFreshness(ctx context.Context, in *GetDataFreshnessRequest, opts ...grpc.CallOption) (*DataFreshnessResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DataFreshnessResponse)
+	err := c.cc.Invoke(ctx, AnalyticsService_GetDataFreshness_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AnalyticsServiceServer is the server API for AnalyticsService service.
 // All implementations must embed UnimplementedAnalyticsServiceServer
 // for forward compatibility.
@@ -104,6 +128,8 @@ type AnalyticsServiceServer interface {
 	GetProjectTimelineControl(context.Context, *GetProjectTimelineRequest) (*ProjectTimelineResponse, error)
 	GetTaskTrends(context.Context, *GetTaskTrendsRequest) (*TaskTrendsResponse, error)
 	GetEmployeeProductivity(context.Context, *GetEmployeeProductivityRequest) (*EmployeeProductivityResponse, error)
+	GetLaborPlanFact(context.Context, *GetLaborPlanFactRequest) (*LaborPlanFactResponse, error)
+	GetDataFreshness(context.Context, *GetDataFreshnessRequest) (*DataFreshnessResponse, error)
 	mustEmbedUnimplementedAnalyticsServiceServer()
 }
 
@@ -128,6 +154,12 @@ func (UnimplementedAnalyticsServiceServer) GetTaskTrends(context.Context, *GetTa
 }
 func (UnimplementedAnalyticsServiceServer) GetEmployeeProductivity(context.Context, *GetEmployeeProductivityRequest) (*EmployeeProductivityResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetEmployeeProductivity not implemented")
+}
+func (UnimplementedAnalyticsServiceServer) GetLaborPlanFact(context.Context, *GetLaborPlanFactRequest) (*LaborPlanFactResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetLaborPlanFact not implemented")
+}
+func (UnimplementedAnalyticsServiceServer) GetDataFreshness(context.Context, *GetDataFreshnessRequest) (*DataFreshnessResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetDataFreshness not implemented")
 }
 func (UnimplementedAnalyticsServiceServer) mustEmbedUnimplementedAnalyticsServiceServer() {}
 func (UnimplementedAnalyticsServiceServer) testEmbeddedByValue()                          {}
@@ -240,6 +272,42 @@ func _AnalyticsService_GetEmployeeProductivity_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AnalyticsService_GetLaborPlanFact_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetLaborPlanFactRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AnalyticsServiceServer).GetLaborPlanFact(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AnalyticsService_GetLaborPlanFact_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AnalyticsServiceServer).GetLaborPlanFact(ctx, req.(*GetLaborPlanFactRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AnalyticsService_GetDataFreshness_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetDataFreshnessRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AnalyticsServiceServer).GetDataFreshness(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AnalyticsService_GetDataFreshness_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AnalyticsServiceServer).GetDataFreshness(ctx, req.(*GetDataFreshnessRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AnalyticsService_ServiceDesc is the grpc.ServiceDesc for AnalyticsService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -266,6 +334,14 @@ var AnalyticsService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetEmployeeProductivity",
 			Handler:    _AnalyticsService_GetEmployeeProductivity_Handler,
+		},
+		{
+			MethodName: "GetLaborPlanFact",
+			Handler:    _AnalyticsService_GetLaborPlanFact_Handler,
+		},
+		{
+			MethodName: "GetDataFreshness",
+			Handler:    _AnalyticsService_GetDataFreshness_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

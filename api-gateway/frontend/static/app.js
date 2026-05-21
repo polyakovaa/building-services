@@ -237,6 +237,52 @@ async function findUsers(query) {
     }
 }
 
+let activityTypesCache = null;
+
+function clearActivityTypesCache() {
+    activityTypesCache = null;
+}
+
+async function loadActivityTypes() {
+    if (activityTypesCache) return activityTypesCache;
+    try {
+        const response = await apiRequest('/api/activity-types');
+        if (!response.ok) return [];
+        const data = await response.json();
+        activityTypesCache = data.activity_types || [];
+        return activityTypesCache;
+    } catch (err) {
+        return [];
+    }
+}
+
+function formatPlanFact(task) {
+    if (!task) return '—';
+    const planned = task.planned_hours ?? task.plannedHours ?? 0;
+    const actual = task.actual_hours ?? task.actualHours ?? 0;
+    if (planned <= 0 && actual <= 0) return '—';
+    return `${planned > 0 ? planned : '—'} / ${actual > 0 ? actual : '—'}`;
+}
+
+function getActivityTypeName(activityTypeId) {
+    if (!activityTypeId || !activityTypesCache) return '—';
+    const found = activityTypesCache.find((a) => a.id === activityTypeId);
+    return found ? found.name : '—';
+}
+
+function fillActivityTypeSelect(selectEl, selectedId, includeEmpty) {
+    if (!selectEl) return;
+    const emptyLabel = includeEmpty === false ? '' : 'Не выбран';
+    selectEl.innerHTML = emptyLabel ? `<option value="">${emptyLabel}</option>` : '';
+    (activityTypesCache || []).forEach((a) => {
+        const opt = document.createElement('option');
+        opt.value = a.id;
+        opt.textContent = a.name;
+        if (selectedId && a.id === selectedId) opt.selected = true;
+        selectEl.appendChild(opt);
+    });
+}
+
 async function loadUsersForMemberSelect(selectEl, projectId) {
     const [allUsers, members] = await Promise.all([
         findUsers(''),
@@ -262,6 +308,7 @@ async function loadUserInfo() {
     if (userNameEl && cachedName) userNameEl.textContent = cachedName;
     if (userRoleEl && cachedRole) userRoleEl.textContent = roles[cachedRole] || '';
     updateAnalyticsMenu(cachedRole);
+    updateToolsMenu(cachedRole);
 
     try {
         const response = await apiRequest('/api/users/me');
@@ -272,6 +319,7 @@ async function loadUserInfo() {
             if (userNameEl) userNameEl.textContent = user.full_name || user.email || 'Пользователь';
             if (userRoleEl) userRoleEl.textContent = roles[user.role] || '';
             updateAnalyticsMenu(user.role);
+            updateToolsMenu(user.role);
         }
     } catch(err) {
         console.error(err);
@@ -286,6 +334,18 @@ function updateAnalyticsMenu(role) {
         analyticsMenuItem.onclick = () => window.location.href = '/analytics';
     } else {
         analyticsMenuItem.style.display = 'none';
+    }
+}
+
+function updateToolsMenu(role) {
+    const toolsMenuItem = document.getElementById('toolsMenuItem');
+    if (!toolsMenuItem) return;
+    const canUse = role === 'ROLE_DIRECTOR' || role === 'ROLE_ADMIN' || role === 'ROLE_GIP';
+    if (canUse) {
+        toolsMenuItem.style.display = 'flex';
+        toolsMenuItem.onclick = () => window.location.href = '/tools';
+    } else {
+        toolsMenuItem.style.display = 'none';
     }
 }
 

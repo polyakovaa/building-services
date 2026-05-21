@@ -15,6 +15,7 @@ type ProjectClient struct {
 	Attachment    projectv1.AttachmentServiceClient
 	User          projectv1.ProjectServiceClient
 	Department    projectv1.DepartmentServiceClient
+	Activity      projectv1.ActivityTypeServiceClient
 	Conn          *grpc.ClientConn
 }
 
@@ -32,6 +33,7 @@ func NewProjectClient(address string) (*ProjectClient, *grpc.ClientConn, error) 
 		Attachment:    projectv1.NewAttachmentServiceClient(conn),
 		User:          projectv1.NewProjectServiceClient(conn),
 		Department:    projectv1.NewDepartmentServiceClient(conn),
+		Activity:      projectv1.NewActivityTypeServiceClient(conn),
 		Conn:          conn,
 	}, conn, nil
 }

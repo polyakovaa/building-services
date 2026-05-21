@@ -15,6 +15,7 @@ import (
 type Repository interface {
 	CreateNotification(ctx context.Context, params repository.CreateNotificationParams) error
 	UpsertNotificationTask(ctx context.Context, task repository.NotificationTask) error
+	UpdateProjectName(ctx context.Context, projectID, projectName string) error
 	UpdateTaskAssignee(ctx context.Context, taskID, assigneeUserID string) error
 	UpdateTaskDeadline(ctx context.Context, taskID string, deadline *time.Time, assigneeUserID, taskTitle, projectName string) error
 	UpdateTaskStatus(ctx context.Context, taskID string, status int32, completedAt *time.Time, taskTitle, projectName string) error
@@ -112,17 +113,30 @@ func (s *Service) ProcessProjectEvent(ctx context.Context, eventType, eventKey s
 		return s.handleDeadlineChanged(ctx, eventType, eventKey, event, payload)
 	case "task.status_changed":
 		return s.handleStatusChanged(ctx, eventType, eventKey, event, payload)
+	case "task.updated":
+		return s.handleTaskUpdated(ctx, event, payload)
 	case "project.member_added":
 		return s.handleProjectMemberAdded(ctx, eventType, eventKey, event, payload)
+	case "project.updated":
+		return s.handleProjectUpdated(ctx, event)
 	default:
 		return nil
 	}
+}
+
+func (s *Service) handleProjectUpdated(ctx context.Context, event map[string]interface{}) error {
+	projectID, _ := event["project_id"].(string)
+	projectName, _ := event["project_name"].(string)
+	return s.repo.UpdateProjectName(ctx, projectID, projectName)
 }
 
 func (s *Service) handleTaskCreated(ctx context.Context, eventType, eventKey string, event map[string]interface{}, payload []byte) error {
 	taskID, _ := event["task_id"].(string)
 	projectID, _ := event["project_id"].(string)
 	assigneeID, _ := event["user_id"].(string)
+	if assigneeID == "" {
+		assigneeID, _ = event["assignee_user_id"].(string)
+	}
 	projectName, _ := event["project_name"].(string)
 	taskTitle, _ := event["task_title"].(string)
 	if taskTitle == "" {
@@ -135,7 +149,7 @@ func (s *Service) handleTaskCreated(ctx context.Context, eventType, eventKey str
 		status = int32(v)
 	}
 
-	if err := s.repo.UpsertNotificationTask(ctx, repository.NotificationTask{
+	nt := repository.NotificationTask{
 		TaskID:         taskID,
 		ProjectID:      projectID,
 		AssigneeUserID: assigneeID,
@@ -143,7 +157,11 @@ func (s *Service) handleTaskCreated(ctx context.Context, eventType, eventKey str
 		ProjectName:    projectName,
 		Deadline:       util.ParseTime(deadlineStr),
 		Status:         status,
-	}); err != nil {
+	}
+	if err := s.repo.UpsertNotificationTask(ctx, nt); err != nil {
+		return err
+	}
+	if err := s.syncDeadlineReminders(ctx, nt); err != nil {
 		return err
 	}
 
@@ -168,8 +186,31 @@ func (s *Service) handleTaskCreated(ctx context.Context, eventType, eventKey str
 func (s *Service) handleTaskAssigned(ctx context.Context, eventType, eventKey string, event map[string]interface{}, payload []byte) error {
 	taskID, _ := event["task_id"].(string)
 	assigneeID, _ := event["to_user_id"].(string)
+	if assigneeID == "" {
+		assigneeID, _ = event["user_id"].(string)
+	}
+	projectID, _ := event["project_id"].(string)
+	projectName, _ := event["project_name"].(string)
+	taskTitle, _ := event["task_title"].(string)
+	deadlineStr, _ := event["deadline"].(string)
+	var status int32
+	if v, ok := event["status"].(float64); ok {
+		status = int32(v)
+	}
 
-	if err := s.repo.UpdateTaskAssignee(ctx, taskID, assigneeID); err != nil {
+	nt := repository.NotificationTask{
+		TaskID:         taskID,
+		ProjectID:      projectID,
+		AssigneeUserID: assigneeID,
+		TaskTitle:      taskTitle,
+		ProjectName:    projectName,
+		Deadline:       util.ParseTime(deadlineStr),
+		Status:         status,
+	}
+	if err := s.repo.UpsertNotificationTask(ctx, nt); err != nil {
+		return err
+	}
+	if err := s.syncDeadlineReminders(ctx, nt); err != nil {
 		return err
 	}
 	if assigneeID == "" {
@@ -200,7 +241,18 @@ func (s *Service) handleDeadlineChanged(ctx context.Context, eventType, eventKey
 		taskTitle, _ = event["title"].(string)
 	}
 
-	if err := s.repo.UpdateTaskDeadline(ctx, taskID, util.ParseTime(newDeadline), assigneeID, taskTitle, projectName); err != nil {
+	deadline := util.ParseTime(newDeadline)
+	if err := s.repo.UpdateTaskDeadline(ctx, taskID, deadline, assigneeID, taskTitle, projectName); err != nil {
+		return err
+	}
+	nt := repository.NotificationTask{
+		TaskID:         taskID,
+		AssigneeUserID: assigneeID,
+		TaskTitle:      taskTitle,
+		ProjectName:    projectName,
+		Deadline:       deadline,
+	}
+	if err := s.syncDeadlineReminders(ctx, nt); err != nil {
 		return err
 	}
 	if assigneeID == "" {
@@ -290,6 +342,57 @@ func (s *Service) handleProjectMemberAdded(ctx context.Context, eventType, event
 		event:            event,
 		payload:          payload,
 	})
+}
+
+func (s *Service) syncDeadlineReminders(ctx context.Context, task repository.NotificationTask) error {
+	if task.AssigneeUserID == "" || task.Deadline == nil || task.Status == 3 {
+		return nil
+	}
+	now := time.Now().UTC()
+	deadlineDay := task.Deadline.UTC()
+	nowDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	taskDay := time.Date(deadlineDay.Year(), deadlineDay.Month(), deadlineDay.Day(), 0, 0, 0, 0, time.UTC)
+	if taskDay.Before(nowDay) {
+		return s.createDeadlineReminder(ctx, task, "task_deadline_overdue", "deadline_overdue", notificationv1.NotificationPriority_NOTIFICATION_PRIORITY_CRITICAL)
+	}
+	limitDay := nowDay.AddDate(0, 0, 3)
+	if !taskDay.After(limitDay) {
+		return s.createDeadlineReminder(ctx, task, "task_deadline_upcoming", "deadline_upcoming", notificationv1.NotificationPriority_NOTIFICATION_PRIORITY_WARNING)
+	}
+	return nil
+}
+
+func (s *Service) handleTaskUpdated(ctx context.Context, event map[string]interface{}, payload []byte) error {
+	taskID, _ := event["task_id"].(string)
+	if taskID == "" {
+		return nil
+	}
+	assigneeID, _ := event["assignee_user_id"].(string)
+	projectID, _ := event["project_id"].(string)
+	projectName, _ := event["project_name"].(string)
+	taskTitle, _ := event["task_title"].(string)
+	deadlineStr, _ := event["deadline"].(string)
+	var status int32
+	if v, ok := event["status"].(float64); ok {
+		status = int32(v)
+	}
+	deadline := util.ParseTime(deadlineStr)
+	if deadlineStr == "" {
+		deadline = nil
+	}
+	nt := repository.NotificationTask{
+		TaskID:         taskID,
+		ProjectID:      projectID,
+		AssigneeUserID: assigneeID,
+		TaskTitle:      taskTitle,
+		ProjectName:    projectName,
+		Deadline:       deadline,
+		Status:         status,
+	}
+	if err := s.repo.UpsertNotificationTask(ctx, nt); err != nil {
+		return err
+	}
+	return s.syncDeadlineReminders(ctx, nt)
 }
 
 func (s *Service) createDeadlineReminder(ctx context.Context, task repository.NotificationTask, notificationType, keyPrefix string, priority notificationv1.NotificationPriority) error {

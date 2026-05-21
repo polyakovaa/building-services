@@ -48,7 +48,10 @@ func (h *ProjectHandler) ListDepartments(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, resp)
+	c.JSON(http.StatusOK, gin.H{
+		"departments":  resp.Departments,
+		"total_count": resp.TotalCount,
+	})
 }
 
 func (h *ProjectHandler) AssignUserToDepartment(c *gin.Context) {

@@ -19,6 +19,11 @@ type Repository interface {
 	UpsertProject(projectID, projectName string, startDate, endDate *time.Time) error
 	GetProjectTimeline(f repository.AnalyticsFilter) ([]*analyticsv1.ProjectTimelineControl, error)
 	GetEmployeeProductivity(f repository.AnalyticsFilter) ([]*analyticsv1.EmployeeProductivity, error)
+	PatchTaskLabor(taskID, activityTypeID string, plannedHours, actualHours float64) error
+	GetLaborPlanFact(f repository.AnalyticsFilter, groupBy string) (*analyticsv1.LaborPlanFactResponse, error)
+	GetDataFreshness() (time.Time, int32, error)
+	UpsertDepartment(id, name string) error
+	UpsertActivityType(id, name string, sortOrder int32) error
 }
 
 type Service struct {
@@ -79,6 +84,18 @@ func (s *Service) GetDashboard(req *analyticsv1.GetDashboardRequest) (*analytics
 	}, nil
 }
 
+func (s *Service) GetDataFreshness(_ *analyticsv1.GetDataFreshnessRequest) (*analyticsv1.DataFreshnessResponse, error) {
+	lastAt, tasksCount, err := s.repo.GetDataFreshness()
+	if err != nil {
+		return nil, err
+	}
+	resp := &analyticsv1.DataFreshnessResponse{TasksCount: tasksCount}
+	if !lastAt.IsZero() {
+		resp.LastEventAt = lastAt.UTC().Format(time.RFC3339)
+	}
+	return resp, nil
+}
+
 func (s *Service) GetDepartmentWorkload(req *analyticsv1.GetDepartmentWorkloadRequest) (*analyticsv1.DepartmentWorkloadResponse, error) {
 	f := util.AnalyticsFilterFrom(req.DepartmentId, req.ProjectId, req.ProjectIds, req.FromDate, req.ToDate)
 	days := int(req.Days)
@@ -123,6 +140,11 @@ func (s *Service) GetEmployeeProductivity(req *analyticsv1.GetEmployeeProductivi
 	return &analyticsv1.EmployeeProductivityResponse{Employees: employees}, nil
 }
 
+func (s *Service) GetLaborPlanFact(req *analyticsv1.GetLaborPlanFactRequest) (*analyticsv1.LaborPlanFactResponse, error) {
+	f := util.AnalyticsFilterFrom(req.DepartmentId, req.ProjectId, req.ProjectIds, req.FromDate, req.ToDate)
+	return s.repo.GetLaborPlanFact(f, req.GroupBy)
+}
+
 func (s *Service) ProcessEvent(eventType string, event map[string]interface{}) error {
 	switch eventType {
 	case "task.created":
@@ -134,12 +156,42 @@ func (s *Service) ProcessEvent(eventType string, event map[string]interface{}) e
 	case "task.deadline_changed":
 		return s.handleTaskDeadlineChanged(event)
 	case "project.created":
-		return s.handleProjectCreated(event)
+		return s.upsertProjectFromEvent(event)
+	case "project.updated":
+		return s.upsertProjectFromEvent(event)
 	case "project.status_changed":
 		return s.handleProjectStatusChanged(event)
+	case "task.updated":
+		return s.handleTaskUpdated(event)
+	case "department.created":
+		return s.handleDepartmentCreated(event)
+	case "activity_type.created":
+		return s.handleActivityTypeCreated(event)
 	default:
 		return nil
 	}
+}
+
+func (s *Service) handleDepartmentCreated(event map[string]interface{}) error {
+	departmentID, _ := event["department_id"].(string)
+	if departmentID == "" {
+		departmentID, _ = event["id"].(string)
+	}
+	name, _ := event["name"].(string)
+	return s.repo.UpsertDepartment(departmentID, name)
+}
+
+func (s *Service) handleActivityTypeCreated(event map[string]interface{}) error {
+	id, _ := event["activity_type_id"].(string)
+	if id == "" {
+		id, _ = event["id"].(string)
+	}
+	name, _ := event["name"].(string)
+	var sortOrder int32
+	if v, ok := event["sort_order"].(float64); ok {
+		sortOrder = int32(v)
+	}
+	return s.repo.UpsertActivityType(id, name, sortOrder)
 }
 
 func (s *Service) handleTaskCreated(event map[string]interface{}) error {
@@ -161,6 +213,7 @@ func (s *Service) handleTaskCreated(event map[string]interface{}) error {
 		return err
 	}
 	s.upsertAssigneeFromEvent(event)
+	s.patchLaborFromEvent(event, taskID)
 	return nil
 }
 
@@ -183,6 +236,7 @@ func (s *Service) handleTaskStatusChanged(event map[string]interface{}) error {
 		return err
 	}
 	s.upsertAssigneeFromEvent(event)
+	s.patchLaborFromEvent(event, taskID)
 	if int32(toStatus) != 3 {
 		return nil
 	}
@@ -241,7 +295,8 @@ func (s *Service) handleTaskDeadlineChanged(event map[string]interface{}) error 
 	return nil
 }
 
-func (s *Service) handleProjectCreated(event map[string]interface{}) error {
+
+func (s *Service) upsertProjectFromEvent(event map[string]interface{}) error {
 	projectID, _ := event["project_id"].(string)
 	if projectID == "" {
 		return nil
@@ -272,4 +327,31 @@ func (s *Service) upsertAssigneeFromEvent(event map[string]interface{}) {
 	if user, ok := util.AssigneeFromEvent(event); ok {
 		_ = s.repo.UpsertUser(user)
 	}
+}
+
+func (s *Service) patchLaborFromEvent(event map[string]interface{}, taskID string) {
+	activityTypeID, plannedHours, actualHours := util.LaborFromEvent(event)
+	if activityTypeID == "" && plannedHours <= 0 && actualHours <= 0 {
+		return
+	}
+	_ = s.repo.PatchTaskLabor(taskID, activityTypeID, plannedHours, actualHours)
+}
+
+func (s *Service) handleTaskUpdated(event map[string]interface{}) error {
+	taskID, _ := event["task_id"].(string)
+	if taskID == "" {
+		return nil
+	}
+	projectID, _ := event["project_id"].(string)
+	assigneeUserID, _ := event["assignee_user_id"].(string)
+	assigneeDepartmentID, _ := event["assignee_department_id"].(string)
+	actorUserID, _ := event["actor_user_id"].(string)
+	occurredAtStr, _ := event["occurred_at"].(string)
+	occurredAt := util.ParseEventTime(occurredAtStr)
+	if err := s.repo.UpsertTaskAnalytics(taskID, projectID, assigneeDepartmentID, assigneeUserID, actorUserID, occurredAt, 0, nil); err != nil {
+		return err
+	}
+	s.upsertAssigneeFromEvent(event)
+	s.patchLaborFromEvent(event, taskID)
+	return nil
 }

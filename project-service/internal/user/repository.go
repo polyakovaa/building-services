@@ -48,7 +48,7 @@ func (r *postgresRepository) Upsert(ctx context.Context, user *User) error {
 				full_name = EXCLUDED.full_name,
 				email = EXCLUDED.email,
 				role = EXCLUDED.role,
-				department_id = EXCLUDED.department_id,
+				department_id = COALESCE(EXCLUDED.department_id, users.department_id),
 				updated_at = CURRENT_TIMESTAMP`
 
 	var deptID interface{} = nil

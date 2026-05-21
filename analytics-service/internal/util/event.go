@@ -50,6 +50,17 @@ func ParseEventTime(occurredAtStr string) time.Time {
 	return time.Now()
 }
 
+func LaborFromEvent(event map[string]interface{}) (activityTypeID string, plannedHours, actualHours float64) {
+	activityTypeID, _ = event["activity_type_id"].(string)
+	if v, ok := event["planned_hours"].(float64); ok {
+		plannedHours = v
+	}
+	if v, ok := event["actual_hours"].(float64); ok {
+		actualHours = v
+	}
+	return activityTypeID, plannedHours, actualHours
+}
+
 func ParseOptionalTime(value string) *time.Time {
 	if value == "" {
 		return nil

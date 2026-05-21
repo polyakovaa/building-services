@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Проекты | ГенСей</title>
     <link rel="stylesheet" href="/static/style.css">
-    <link rel="stylesheet" href="/static/projects.css">
     <script src="/static/app.js"></script>
 
         
@@ -39,6 +38,9 @@
                     <li class="sidebar-item" data-page="analytics" id="analyticsMenuItem" style="display: none;">
                         <span>Аналитика</span>
                     </li>
+                    <li class="sidebar-item" data-page="tools" id="toolsMenuItem" style="display: none;">
+                        <span>Инструменты</span>
+                    </li>
                     <li class="sidebar-item" data-page="notifications" onclick="window.location.href='/notifications'">
                         <span>Уведомления</span>
                         <span class="notification-badge" id="notifCount"></span>
@@ -50,8 +52,8 @@
             </div>
 
             <div class="main-content">
-                <div class="projects-container">
-                    <div class="projects-header">
+                <div class="list-page-container">
+                    <div class="page-toolbar">
                         <button class="create-btn" id="createProjectBtn">+ Создать проект</button>
                     </div>
                     

@@ -12,9 +12,9 @@
 }
 
 .cal-nav-btn {
-    background: #f0f4ff;
-    border: 1px solid #dce4ff;
-    color: #4a6cf7;
+    background: var(--color-primary-pale);
+    border: 1px solid var(--color-primary-light);
+    color: var(--color-primary);
     width: 40px;
     height: 40px;
     border-radius: 10px;
@@ -24,7 +24,7 @@
 }
 
 .cal-nav-btn:hover {
-    background: #e0e8ff;
+    background: var(--color-primary-light);
 }
 
 .cal-month-title {
@@ -60,7 +60,7 @@
 }
 
 .cal-dot--task {
-    background: #4a6cf7;
+    background: var(--color-primary);
 }
 
 .cal-dot--project {
@@ -68,7 +68,7 @@
 }
 
 .cal-dot--milestone {
-    background: #14b8a6;
+    background: #7EC24A;
 }
 
 .cal-weekdays {
@@ -104,8 +104,8 @@
 }
 
 .cal-cell:hover {
-    background: #f0f4ff;
-    border-color: #c7d4ff;
+    background: var(--color-primary-pale);
+    border-color: var(--color-primary-light);
 }
 
 .cal-cell--muted {
@@ -113,13 +113,13 @@
 }
 
 .cal-cell--today {
-    border-color: #4a6cf7;
+    border-color: var(--color-primary);
     background: #f5f7ff;
 }
 
 .cal-cell--selected {
-    border-color: #4a6cf7;
-    box-shadow: 0 0 0 2px rgba(74, 108, 247, 0.25);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(102, 125, 234, 0.25);
 }
 
 .cal-cell-num {
@@ -166,7 +166,7 @@
 }
 
 .cal-day-link {
-    color: #4a6cf7;
+    color: var(--color-primary);
     text-decoration: none;
     font-weight: 500;
 }

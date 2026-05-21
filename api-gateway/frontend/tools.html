@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Инструменты</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/app.js"></script>
+    <script src="/static/tools.js"></script>
+</head>
+<body class="dashboard-body">
+    <div class="dashboard-container">
+        <div class="header">
+            <h1>Инструменты</h1>
+            <div class="user-info">
+                <span class="user-name" id="userName"></span>
+                <span class="user-role" id="userRole"></span>
+                <button class="logout-btn" onclick="logout()">Выйти</button>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="sidebar">
+                <ul class="sidebar-menu">
+                    <li class="sidebar-item" data-page="dashboard" onclick="window.location.href='/dashboard'">
+                        <span>Главная</span>
+                    </li>
+                    <li class="sidebar-item" data-page="projects" onclick="window.location.href='/projects'">
+                        <span>Проекты</span>
+                    </li>
+                    <li class="sidebar-item" data-page="tasks" onclick="window.location.href='/tasks'">
+                        <span>Мои задачи</span>
+                    </li>
+                    <li class="sidebar-item" data-page="calendar" onclick="window.location.href='/calendar'">
+                        <span>Календарь</span>
+                    </li>
+                    <li class="sidebar-item" data-page="analytics" id="analyticsMenuItem" style="display: none;">
+                        <span>Аналитика</span>
+                    </li>
+                    <li class="sidebar-item active" data-page="tools" id="toolsMenuItem" style="display: none;">
+                        <span>Инструменты</span>
+                    </li>
+                    <li class="sidebar-item" data-page="notifications" onclick="window.location.href='/notifications'">
+                        <span>Уведомления</span>
+                        <span class="notification-badge" id="notifCount"></span>
+                    </li>
+                    <li class="sidebar-item" data-page="profile" onclick="window.location.href='/profile'">
+                        <span>Профиль</span>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="main-content" id="mainContent">
+                <div id="adminCatalogSection" class="analytics-section admin-catalog-section">
+                    <h2 class="section-title">Справочники</h2>
+                    <p class="admin-catalog-hint">Новые отделы и виды работ появятся в задачах и отчётах после сохранения.</p>
+                    <div class="admin-catalog-grid">
+                        <div id="departmentAdminCard" class="admin-catalog-card" style="display:none;">
+                            <h3 class="admin-catalog-title">Отделы</h3>
+                            <div class="admin-catalog-form">
+                                <input type="text" id="newDepartmentName" placeholder="Название отдела">
+                                <button type="button" class="save-btn" onclick="createDepartment()">Добавить отдел</button>
+                            </div>
+                            <ul id="departmentsList" class="admin-catalog-list"></ul>
+                        </div>
+                        <div id="activityTypeAdminCard" class="admin-catalog-card" style="display:none;">
+                            <h3 class="admin-catalog-title">Виды работ (трудоёмкость)</h3>
+                            <div class="admin-catalog-form">
+                                <input type="text" id="newActivityTypeName" placeholder="Название вида работ">
+                                <button type="button" class="save-btn" onclick="createActivityType()">Добавить вид</button>
+                            </div>
+                            <ul id="activityTypesList" class="admin-catalog-list"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            await loadUserInfo();
+            await initializeTools();
+        });
+    </script>
+</body>
+</html>

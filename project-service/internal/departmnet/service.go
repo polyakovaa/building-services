@@ -3,10 +3,13 @@ package department
 import (
 	"context"
 	"fmt"
+	"log"
+	"time"
 
 	projectv1 "building-services/gen/project/v1"
 	"building-services/project-service/internal/authz"
 	"building-services/project-service/internal/errs"
+	"building-services/project-service/internal/events"
 	"building-services/project-service/internal/user"
 	"building-services/project-service/internal/util"
 
@@ -18,6 +21,7 @@ type Service struct {
 	depRepo  DepRepo
 	userRepo UserRepo
 	authz    PermissionChecker
+	events   events.Publisher
 }
 
 type UserRepo interface {
@@ -38,11 +42,12 @@ type DepRepo interface {
 	GetDepartmentUsers(ctx context.Context, departmentID string) ([]*projectv1.User, error)
 }
 
-func NewService(repo DepRepo, userRepo UserRepo, permissionChecker PermissionChecker) *Service {
+func NewService(repo DepRepo, userRepo UserRepo, permissionChecker PermissionChecker, eventPublisher events.Publisher) *Service {
 	return &Service{
 		depRepo:  repo,
 		userRepo: userRepo,
 		authz:    permissionChecker,
+		events:   eventPublisher,
 	}
 }
 
@@ -76,6 +81,20 @@ func (s *Service) CreateDepartment(ctx context.Context, req *projectv1.CreateDep
 
 	if err := s.depRepo.Create(ctx, dept); err != nil {
 		return nil, err
+	}
+
+	if s.events != nil {
+		event := map[string]interface{}{
+			"event_type":    "department.created",
+			"occurred_at":   time.Now().UTC().Format(time.RFC3339Nano),
+			"actor_user_id": currentUserID,
+			"department_id": dept.Id,
+			"id":            dept.Id,
+			"name":          dept.Name,
+		}
+		if err := s.events.Publish(ctx, "department.created", event); err != nil {
+			log.Printf("Failed to publish department.created: %v", err)
+		}
 	}
 
 	return dept, nil

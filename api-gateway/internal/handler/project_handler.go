@@ -36,6 +36,7 @@ func (h *ProjectHandler) RegisterRoutes(r *gin.RouterGroup) {
 	r.PUT("/tasks/:id", h.UpdateTask)
 	r.DELETE("/tasks/:id", h.DeleteTask)
 	r.PATCH("/tasks/:id/status", h.UpdateTaskStatus)
+	r.PATCH("/tasks/:id/labor", h.UpdateTaskLabor)
 	r.PATCH("/tasks/:id/assign", h.AssignTask)
 	r.GET("/tasks/my", h.ListMyTasks)
 	r.GET("/projects/:id/timeline", h.GetTimeline)
@@ -51,6 +52,8 @@ func (h *ProjectHandler) RegisterRoutes(r *gin.RouterGroup) {
 	r.POST("/departments/:id/users/:userId", h.AssignUserToDepartment)
 	r.DELETE("/departments/:id/users/:userId", h.RemoveUserFromDepartment)
 	r.GET("/departments/:id/users", h.GetDepartmentUsers)
+	r.GET("/activity-types", h.ListActivityTypes)
+	r.POST("/activity-types", h.CreateActivityType)
 }
 
 func (h *ProjectHandler) CreateProject(c *gin.Context) {

@@ -1,8 +1,10 @@
 let currentPeriod = 'week';
+let currentLaborGroup = 'total';
 let currentUser = null;
 let userDepartment = null;
 let trendsChartInstance = null;
 let workloadChartInstance = null;
+let laborPlanFactChartInstance = null;
 
 async function initializeAnalytics() {
     try {
@@ -13,6 +15,7 @@ async function initializeAnalytics() {
         }
         await loadUserData();
         setupFilters();
+        setupLaborTabs();
         await loadAnalyticsData();
         
     } catch (error) {
@@ -45,7 +48,7 @@ async function loadUserData() {
 }
 
 function setupFilters() {
-    document.querySelectorAll('.filter-tab').forEach(tab => {
+    document.querySelectorAll('.analytics-filters .filter-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
@@ -60,19 +63,24 @@ async function loadAnalyticsData() {
     
     try {
         const filters = getFilters();
-        const [dashboardData, workloadData, trendsData, productivityData, timelineData] = await Promise.all([
+        const [dashboardData, workloadData, trendsData, productivityData, timelineData, laborData, freshnessData] = await Promise.all([
             loadDashboard(filters),
             loadWorkload(filters),
             loadTrends(filters),
             loadProductivity(filters),
-            loadTimeline(filters)
+            loadTimeline(filters),
+            loadLabor(filters, currentLaborGroup),
+            loadDataFreshness()
         ]);
         updateDashboard(dashboardData);
+        updateDataFreshness(freshnessData);
         updateWorkloadChart(workloadData);
         updateTrendsChart(trendsData);
         updateProductivityTable(productivityData);
         updateTimelineTable(timelineData);
         updateDepartmentCards(workloadData);
+        updateLaborReport(laborData);
+        updateLaborPlanFactChart(laborData);
 
     } catch (error) {
         console.error('Failed to load analytics data:', error);
@@ -120,6 +128,105 @@ function getPeriodDates(period) {
         fromDate: fromDate.toISOString().split('T')[0],
         toDate: toDate.toISOString().split('T')[0]
     };
+}
+
+function setupLaborTabs() {
+    document.querySelectorAll('[data-labor-group]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            document.querySelectorAll('[data-labor-group]').forEach((b) => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentLaborGroup = btn.dataset.laborGroup || 'total';
+            try {
+                const laborData = await loadLabor(getFilters(), currentLaborGroup);
+                updateLaborReport(laborData);
+                updateLaborPlanFactChart(laborData);
+            } catch (error) {
+                console.error('Failed to load labor report:', error);
+            }
+        });
+    });
+}
+
+async function loadLabor(filters, groupBy) {
+    const params = new URLSearchParams();
+    if (filters.department_id) params.append('department_id', filters.department_id);
+    if (filters.from_date) params.append('from_date', filters.from_date);
+    if (filters.to_date) params.append('to_date', filters.to_date);
+    if (groupBy) params.append('group_by', groupBy);
+    const response = await apiRequest(`/api/analytics/labor?${params}`);
+    if (!response.ok) throw new Error('Failed to load labor report');
+    return await response.json();
+}
+
+function formatLaborDeviation(pct) {
+    const n = Number(pct) || 0;
+    const sign = n > 0 ? '+' : '';
+    return `${sign}${n.toFixed(1)}%`;
+}
+
+function laborDeviationClass(pct) {
+    const n = Number(pct) || 0;
+    if (n > 5) return 'labor-deviation-over';
+    if (n < -5) return 'labor-deviation-under';
+    return 'labor-deviation-ok';
+}
+
+function updateLaborReport(data) {
+    const tbody = document.querySelector('#laborTable tbody');
+    const summary = document.getElementById('laborSummary');
+    const kpiGrid = document.getElementById('laborKpiGrid');
+    if (!tbody) return;
+
+    const planned = data?.total_planned_hours ?? data?.totalPlannedHours ?? 0;
+    const actual = data?.total_actual_hours ?? data?.totalActualHours ?? 0;
+    const deviation = data?.total_deviation_percent ?? data?.totalDeviationPercent ?? 0;
+    const withPlan = data?.tasks_with_plan ?? data?.tasksWithPlan ?? 0;
+    const comparable = data?.tasks_comparable ?? data?.tasksComparable ?? 0;
+    const overrun = data?.overrun_tasks ?? data?.overrunTasks ?? 0;
+    const avgCompleted = data?.avg_actual_per_completed ?? data?.avgActualPerCompleted ?? 0;
+
+    if (summary) {
+        summary.textContent = `План ${planned.toFixed(1)} ч · факт ${actual.toFixed(1)} ч · отклонение ${formatLaborDeviation(deviation)}`;
+    }
+    if (kpiGrid) {
+        const overrunPct = comparable > 0 ? Math.round((overrun / comparable) * 100) : 0;
+        kpiGrid.innerHTML = `
+            <div class="labor-kpi-card"><span class="labor-kpi-label">С планом</span><span class="labor-kpi-value">${withPlan}</span></div>
+            <div class="labor-kpi-card"><span class="labor-kpi-label">План и факт</span><span class="labor-kpi-value">${comparable}</span></div>
+            <div class="labor-kpi-card"><span class="labor-kpi-label">Перерасход</span><span class="labor-kpi-value">${overrun} <small>(${overrunPct}%)</small></span></div>
+            <div class="labor-kpi-card"><span class="labor-kpi-label">Ср. факт (закрытые)</span><span class="labor-kpi-value">${avgCompleted.toFixed(1)} ч</span></div>
+        `;
+    }
+
+    const rows = (data?.rows || []).filter((r) => {
+        const p = r.planned_hours ?? r.plannedHours ?? 0;
+        const a = r.actual_hours ?? r.actualHours ?? 0;
+        return p > 0 || a > 0;
+    });
+
+    if (!rows.length && withPlan === 0) {
+        tbody.innerHTML = '<tr><td colspan="7">Нет задач с планом или фактом за выбранный период</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = rows.map((r) => {
+        const name = r.group_name || r.groupName || '—';
+        const p = r.planned_hours ?? r.plannedHours ?? 0;
+        const a = r.actual_hours ?? r.actualHours ?? 0;
+        const dev = r.deviation_percent ?? r.deviationPercent ?? 0;
+        const over = r.overrun_tasks ?? r.overrunTasks ?? 0;
+        const avg = r.avg_actual_per_completed ?? r.avgActualPerCompleted ?? 0;
+        const withPlanRow = r.tasks_with_plan ?? r.tasksWithPlan ?? 0;
+        return `<tr>
+            <td>${escapeHtml(name)}</td>
+            <td>${p.toFixed(1)}</td>
+            <td>${a.toFixed(1)}</td>
+            <td class="${laborDeviationClass(dev)}">${formatLaborDeviation(dev)}</td>
+            <td>${over}</td>
+            <td>${avg > 0 ? avg.toFixed(1) : '—'}</td>
+            <td>${withPlanRow}</td>
+        </tr>`;
+    }).join('');
 }
 
 async function loadDashboard(filters) {
@@ -186,13 +293,35 @@ async function loadTimeline(filters) {
 
 function updateDashboard(data) {
     const dashboard = data.dashboard || data;
-    
+
     updateStat('activeProjects', dashboard.active_projects || 0);
     updateStat('totalTasks', dashboard.total_tasks || 0);
     updateStat('overdueTasks', dashboard.overdue_tasks || 0);
     updateStat('completionRate', formatPercentage(dashboard.completion_rate || 0));
     updateStat('onTimeRate', formatPercentage(dashboard.on_time_rate || 0));
 }
+
+async function loadDataFreshness() {
+    const response = await apiRequest('/api/analytics/freshness');
+    if (!response.ok) return null;
+    return await response.json();
+}
+
+function updateDataFreshness(data) {
+    const el = document.getElementById('dataFreshness');
+    if (!el || !data) return;
+    const lastAt = data.last_event_at || data.lastEventAt;
+    if (!lastAt) {
+        el.textContent = 'Данные обновляются…';
+        return;
+    }
+    const dt = new Date(lastAt);
+    const formatted = Number.isNaN(dt.getTime())
+        ? lastAt
+        : dt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    el.textContent = `Данные обновлены: ${formatted}`;
+}
+
 function updateStat(id, value) {
     const element = document.getElementById(id);
     if (element) {
@@ -227,6 +356,7 @@ function updateTrendsChart(data) {
     const labels = trends.map(t => formatTrendLabel(t.week || ''));
     const created = trends.map(t => Number(t.created) || 0);
     const completed = trends.map(t => Number(t.completed) || 0);
+    const overdue = trends.map(t => Number(t.overdue) || 0);
 
     trendsChartInstance = new Chart(canvas.getContext('2d'), {
         type: 'line',
@@ -236,16 +366,24 @@ function updateTrendsChart(data) {
                 {
                     label: 'Создано',
                     data: created,
-                    borderColor: '#4a6cf7',
-                    backgroundColor: 'rgba(74,108,247,0.12)',
+                    borderColor: '#667dea',
+                    backgroundColor: 'rgba(102,125,234,0.12)',
                     tension: 0.25,
                     fill: false
                 },
                 {
                     label: 'Завершено',
                     data: completed,
-                    borderColor: '#2e7d32',
-                    backgroundColor: 'rgba(46,125,50,0.12)',
+                    borderColor: '#b4f384',
+                    backgroundColor: 'rgba(180,243,132,0.12)',
+                    tension: 0.25,
+                    fill: false
+                },
+                {
+                    label: 'Просрочено',
+                    data: overdue,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239,68,68,0.12)',
                     tension: 0.25,
                     fill: false
                 }
@@ -300,8 +438,8 @@ function updateWorkloadChart(data) {
         data: {
             labels,
             datasets: [
-                { label: 'В работе (WIP)', data: wip, backgroundColor: 'rgba(74,108,247,0.75)' },
-                { label: 'Завершено (за период)', data: completed, backgroundColor: 'rgba(46,125,50,0.75)' }
+                { label: 'В работе (WIP)', data: wip, backgroundColor: 'rgba(102,125,234,0.75)' },
+                { label: 'Завершено (за период)', data: completed, backgroundColor: 'rgba(180,243,132,0.75)' }
             ]
         },
         options: {
@@ -463,6 +601,61 @@ function getBadgeClass(value) {
     if (value >= 80) return 'good';
     if (value >= 60) return 'warning';
     return 'danger';
+}
+
+function updateLaborPlanFactChart(data) {
+    const section = document.getElementById('laborChartSection');
+    const canvas = document.getElementById('laborPlanFactChart');
+    if (!section || !canvas) return;
+
+    if (currentLaborGroup === 'total') {
+        section.style.display = 'none';
+        if (laborPlanFactChartInstance) {
+            laborPlanFactChartInstance.destroy();
+            laborPlanFactChartInstance = null;
+        }
+        return;
+    }
+
+    const rows = (data?.rows || []).filter((r) => {
+        const p = r.planned_hours ?? r.plannedHours ?? 0;
+        const a = r.actual_hours ?? r.actualHours ?? 0;
+        return p > 0 || a > 0;
+    }).slice(0, 10);
+
+    if (!rows.length || typeof Chart === 'undefined') {
+        section.style.display = 'none';
+        return;
+    }
+
+    section.style.display = 'block';
+
+    if (laborPlanFactChartInstance) {
+        laborPlanFactChartInstance.destroy();
+        laborPlanFactChartInstance = null;
+    }
+
+    const labels = rows.map((r) => r.group_name || r.groupName || '—');
+    const planned = rows.map((r) => Number(r.planned_hours ?? r.plannedHours ?? 0));
+    const actual = rows.map((r) => Number(r.actual_hours ?? r.actualHours ?? 0));
+
+    laborPlanFactChartInstance = new Chart(canvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                { label: 'План, ч', data: planned, backgroundColor: 'rgba(102,125,234,0.75)' },
+                { label: 'Факт, ч', data: actual, backgroundColor: 'rgba(239,68,68,0.65)' }
+            ]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } },
+            scales: { x: { beginAtZero: true, title: { display: true, text: 'Часы' } } }
+        }
+    });
 }
 
 function showEmptyChart(canvas, message) {

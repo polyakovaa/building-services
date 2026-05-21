@@ -56,10 +56,11 @@ func (r *Repository) List(ctx context.Context) ([]*projectv1.Department, error) 
 
 	var depts []*projectv1.Department
 	for rows.Next() {
-		var dept projectv1.Department
+		dept := &projectv1.Department{}
 		var headUserID sql.NullString
+		var createdAt time.Time
 
-		err := rows.Scan(&dept.Id, &dept.Name, &headUserID, &dept.CreatedAt)
+		err := rows.Scan(&dept.Id, &dept.Name, &headUserID, &createdAt)
 		if err != nil {
 			return nil, err
 		}
@@ -67,8 +68,12 @@ func (r *Repository) List(ctx context.Context) ([]*projectv1.Department, error) 
 		if headUserID.Valid {
 			dept.HeadUserId = headUserID.String
 		}
+		dept.CreatedAt = timestamppb.New(createdAt)
 
-		depts = append(depts, &dept)
+		depts = append(depts, dept)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return depts, nil

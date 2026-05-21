@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"time"
 
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Repository struct {
@@ -28,8 +27,8 @@ type TaskFilter struct {
 }
 
 func (r *Repository) Create(ctx context.Context, task *projectv1.Task) error {
-	query := `INSERT INTO tasks (project_id, title, description, status, priority, deadline, assigned_to, created_by, parent_task_id)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`
+	query := `INSERT INTO tasks (project_id, title, description, status, priority, deadline, assigned_to, created_by, parent_task_id, activity_type_id, planned_hours, actual_hours)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`
 	var deadline *time.Time
 	if task.Deadline != nil {
 		t := task.Deadline.AsTime()
@@ -45,6 +44,7 @@ func (r *Repository) Create(ctx context.Context, task *projectv1.Task) error {
 		assignedTo = task.AssignedTo
 	}
 
+	activityTypeID, plannedHours, actualHours := laborArgs(task)
 	var id string
 	err := r.db.QueryRowContext(ctx, query,
 		task.ProjectId,
@@ -55,7 +55,10 @@ func (r *Repository) Create(ctx context.Context, task *projectv1.Task) error {
 		deadline,
 		assignedTo,
 		task.CreatedBy,
-		parentTaskID).Scan(&id)
+		parentTaskID,
+		activityTypeID,
+		plannedHours,
+		actualHours).Scan(&id)
 
 	if err != nil {
 		return fmt.Errorf("failed to create task: %w", err)
@@ -66,13 +69,13 @@ func (r *Repository) Create(ctx context.Context, task *projectv1.Task) error {
 }
 
 func (r *Repository) FindByID(ctx context.Context, id string) (*projectv1.Task, error) {
-	query := `SELECT id, project_id, title, description, status, priority, deadline, assigned_to, created_by, parent_task_id, created_at, updated_at
-              FROM tasks WHERE id = $1`
+	query := `SELECT ` + taskSelectColumns + ` FROM tasks WHERE id = $1`
 
 	t := &projectv1.Task{}
 	var deadline, createdAt, updatedAt sql.NullTime
 	var status, priority int32
-	var assignedTo, createdBy, parentTaskId sql.NullString
+	var assignedTo, createdBy, parentTaskId, activityTypeID sql.NullString
+	var plannedHours, actualHours sql.NullFloat64
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&t.Id,
@@ -87,34 +90,15 @@ func (r *Repository) FindByID(ctx context.Context, id string) (*projectv1.Task, 
 		&parentTaskId,
 		&createdAt,
 		&updatedAt,
+		&activityTypeID,
+		&plannedHours,
+		&actualHours,
 	)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to find task: %w", err)
 	}
-	t.Status = projectv1.TaskStatus(status)
-	t.Priority = projectv1.TaskPriority(priority)
-
-	if deadline.Valid {
-		t.Deadline = timestamppb.New(deadline.Time)
-	}
-
-	if createdAt.Valid {
-		t.CreatedAt = timestamppb.New(createdAt.Time)
-	}
-	if updatedAt.Valid {
-		t.UpdatedAt = timestamppb.New(updatedAt.Time)
-	}
-	if assignedTo.Valid {
-		t.AssignedTo = assignedTo.String
-	}
-	if createdBy.Valid {
-		t.CreatedBy = createdBy.String
-	}
-	if parentTaskId.Valid {
-		t.ParentTaskId = parentTaskId.String
-	}
-
+	scanTask(t, status, priority, deadline, createdAt, updatedAt, assignedTo, createdBy, parentTaskId, activityTypeID, plannedHours, actualHours)
 	return t, nil
 
 }
@@ -127,8 +111,10 @@ func (r *Repository) Update(ctx context.Context, task *projectv1.Task) error {
         deadline = $4,
         assigned_to = $5,
         parent_task_id = $6,
+        activity_type_id = $7,
+        planned_hours = $8,
         updated_at = CURRENT_TIMESTAMP
-        WHERE id = $7`
+        WHERE id = $9`
 
 	var deadline *time.Time
 	if task.Deadline != nil {
@@ -144,6 +130,7 @@ func (r *Repository) Update(ctx context.Context, task *projectv1.Task) error {
 		parentTaskID = task.ParentTaskId
 	}
 
+	activityTypeID, plannedHours, _ := laborArgs(task)
 	result, err := r.db.ExecContext(ctx, query,
 		task.Title,
 		task.Description,
@@ -151,6 +138,8 @@ func (r *Repository) Update(ctx context.Context, task *projectv1.Task) error {
 		deadline,
 		assignedTo,
 		parentTaskID,
+		activityTypeID,
+		plannedHours,
 		task.Id,
 	)
 
@@ -188,10 +177,43 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 
 }
 
-func (r *Repository) UpdateStatus(ctx context.Context, id string, status projectv1.TaskStatus) error {
-	query := `UPDATE tasks SET status = $1 WHERE id = $2`
+func (r *Repository) UpdateLabor(ctx context.Context, id string, activityTypeID string, plannedHours, actualHours float64) error {
+	activityArg, plannedArg, actualArg := laborArgs(&projectv1.Task{
+		ActivityTypeId: activityTypeID,
+		PlannedHours:   plannedHours,
+		ActualHours:    actualHours,
+	})
+	result, err := r.db.ExecContext(ctx, `UPDATE tasks SET
+		activity_type_id = $1,
+		planned_hours = $2,
+		actual_hours = $3,
+		updated_at = CURRENT_TIMESTAMP
+		WHERE id = $4`, activityArg, plannedArg, actualArg, id)
+	if err != nil {
+		return fmt.Errorf("failed to update task labor: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
 
-	result, err := r.db.ExecContext(ctx, query, status, id)
+func (r *Repository) UpdateStatus(ctx context.Context, id string, status projectv1.TaskStatus, actualHours float64) error {
+	var result sql.Result
+	var err error
+	if actualHours > 0 {
+		result, err = r.db.ExecContext(ctx,
+			`UPDATE tasks SET status = $1, actual_hours = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`,
+			status, actualHours, id)
+	} else {
+		result, err = r.db.ExecContext(ctx,
+			`UPDATE tasks SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+			status, id)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to update status of task: %w", err)
 	}
@@ -207,9 +229,7 @@ func (r *Repository) UpdateStatus(ctx context.Context, id string, status project
 }
 
 func (r *Repository) List(ctx context.Context, filter *TaskFilter) ([]*projectv1.Task, error) {
-	query := `SELECT id, project_id, title, description, status, priority, 
-	deadline, assigned_to, created_by, parent_task_id, created_at, updated_at
-	FROM tasks WHERE 1=1`
+	query := `SELECT ` + taskSelectColumns + ` FROM tasks WHERE 1=1`
 
 	args := []interface{}{}
 	argIdx := 1
@@ -257,35 +277,16 @@ func (r *Repository) List(ctx context.Context, filter *TaskFilter) ([]*projectv1
 		t := &projectv1.Task{}
 		var deadline, createdAt, updatedAt sql.NullTime
 		var status, priority int32
-		var assignedTo, createdBy, parentTaskId sql.NullString
+		var assignedTo, createdBy, parentTaskId, activityTypeID sql.NullString
+		var plannedHours, actualHours sql.NullFloat64
 
 		err := rows.Scan(&t.Id, &t.ProjectId, &t.Title, &t.Description,
 			&status, &priority, &deadline, &assignedTo, &createdBy,
-			&parentTaskId, &createdAt, &updatedAt)
+			&parentTaskId, &createdAt, &updatedAt, &activityTypeID, &plannedHours, &actualHours)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan task: %w", err)
 		}
-
-		t.Status = projectv1.TaskStatus(status)
-		if deadline.Valid {
-			t.Deadline = timestamppb.New(deadline.Time)
-		}
-		if assignedTo.Valid {
-			t.AssignedTo = assignedTo.String
-		}
-		if createdBy.Valid {
-			t.CreatedBy = createdBy.String
-		}
-		if parentTaskId.Valid {
-			t.ParentTaskId = parentTaskId.String
-		}
-		if createdAt.Valid {
-			t.CreatedAt = timestamppb.New(createdAt.Time)
-		}
-		if updatedAt.Valid {
-			t.UpdatedAt = timestamppb.New(updatedAt.Time)
-		}
-
+		scanTask(t, status, priority, deadline, createdAt, updatedAt, assignedTo, createdBy, parentTaskId, activityTypeID, plannedHours, actualHours)
 		tasks = append(tasks, t)
 	}
 

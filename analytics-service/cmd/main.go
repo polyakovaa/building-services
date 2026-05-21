@@ -35,13 +35,13 @@ func main() {
 	service := service.NewService(repo)
 	handler := handler.NewHandler(service)
 
-	eevntConsumer, err := consumer.NewEventConsumer(repo, service, "amqp://guest:guest@rabbitmq:5672/")
+	eventConsumer, err := consumer.NewEventConsumer(repo, service, "amqp://guest:guest@rabbitmq:5672/")
 
 	if err != nil {
 		log.Fatalf("Failed to create consumer: %v", err)
 	}
-	defer eevntConsumer.Close()
-	eevntConsumer.Start()
+	defer eventConsumer.Close()
+	eventConsumer.Start()
 
 	userConsumer, err := consumer.NewUserConsumer(repo, "amqp://guest:guest@rabbitmq:5672/")
 	if err != nil {
@@ -69,20 +69,16 @@ func main() {
 	go func() {
 		for {
 			ctx := context.Background()
-
 			dbErr := db.PingContext(ctx)
-
 			if dbErr != nil {
 				healthServer.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
 				log.Printf("Health check for Analytics service failed: %v", dbErr)
 			} else {
 				healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 			}
-
 			time.Sleep(5 * time.Second)
 		}
 	}()
-
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}
