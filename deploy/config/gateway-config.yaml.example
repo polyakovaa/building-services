@@ -1,0 +1,21 @@
+server:
+  port: 8080
+  timeout: 30s
+
+services:
+  auth:
+    address: "dns:///auth_service:50051"
+    timeout: 5s
+  project:
+    address: "dns:///project_service:50052"
+    timeout: 5s
+  analytics:
+    address: "dns:///analytics_service:50053"
+    timeout: 5s
+  notification:
+    address: "dns:///notification_service:50054"
+    timeout: 5s
+
+jwt_secret: "CHANGE_ME_MATCH_JWT_SECRET"
+logging:
+  level: "info"

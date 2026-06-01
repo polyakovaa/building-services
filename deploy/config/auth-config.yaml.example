@@ -1,0 +1,28 @@
+server:
+  port: 50051
+  timeout: 30s
+
+database:
+  host: "auth_db"
+  port: 5432
+  name: "auth_db"
+  user: "auth_user"
+  password: "CHANGE_ME_MATCH_AUTH_DB_PASSWORD"
+  ssl_mode: "disable"
+  max_open_conns: 10
+  max_idle_conns: 5
+  conn_max_lifetime: 30m
+
+redis:
+  host: "redis"
+  port: 6379
+  password: ""
+  db: 0
+
+jwt:
+  secret: "CHANGE_ME_MATCH_JWT_SECRET"
+  access_ttl: "150m"
+  refresh_ttl: "168h"
+
+logging:
+  level: "info"

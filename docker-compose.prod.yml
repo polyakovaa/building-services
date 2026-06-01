@@ -1,0 +1,268 @@
+# Запуск: cp .env.example .env && отредактировать deploy/config → docker compose up -d --build
+
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    container_name: api-gateway
+    ports:
+      - "${GATEWAY_BIND:-127.0.0.1:8080}:8080"
+    volumes:
+      - ./deploy/config/gateway-config.yaml:/app/config.yaml:ro
+    depends_on:
+      auth-service:
+        condition: service_started
+      project-service:
+        condition: service_started
+      analytics-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+    networks:
+      - backend
+    restart: unless-stopped
+
+  auth_db:
+    image: postgres:16
+    container_name: auth_db
+    environment:
+      POSTGRES_USER: ${AUTH_DB_USER}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD}
+      POSTGRES_DB: ${AUTH_DB_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AUTH_DB_USER} -d ${AUTH_DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    container_name: auth_redis
+    networks:
+      - backend
+    restart: unless-stopped
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth-service/Dockerfile
+    container_name: auth_service
+    volumes:
+      - ./deploy/config/auth-config.yaml:/app/config.yaml:ro
+    depends_on:
+      auth-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+
+  auth-migrate:
+    image: migrate/migrate
+    volumes:
+      - ./auth-service/migrations:/migrations
+    command:
+      - -path
+      - /migrations
+      - -database
+      - postgres://${AUTH_DB_USER}:${AUTH_DB_PASSWORD}@auth_db:5432/${AUTH_DB_NAME}?sslmode=disable
+      - up
+    depends_on:
+      auth_db:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: "no"
+
+  project_db:
+    image: postgres:16
+    container_name: project_db
+    environment:
+      POSTGRES_USER: ${PROJECT_DB_USER}
+      POSTGRES_PASSWORD: ${PROJECT_DB_PASSWORD}
+      POSTGRES_DB: ${PROJECT_DB_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PROJECT_DB_USER} -d ${PROJECT_DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - project_db_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    restart: unless-stopped
+
+  project-service:
+    build:
+      context: .
+      dockerfile: project-service/Dockerfile
+    container_name: project_service
+    volumes:
+      - ./deploy/config/project-config.yaml:/app/config.yaml:ro
+    depends_on:
+      project-migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+
+  project-migrate:
+    image: migrate/migrate
+    container_name: project_migrate
+    volumes:
+      - ./project-service/migrations:/migrations
+    command:
+      - -path
+      - /migrations
+      - -database
+      - postgres://${PROJECT_DB_USER}:${PROJECT_DB_PASSWORD}@project_db:5432/${PROJECT_DB_NAME}?sslmode=disable
+      - up
+    depends_on:
+      project_db:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: "no"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-guest}
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  analytics_db:
+    image: postgres:16
+    container_name: analytics_db
+    environment:
+      POSTGRES_USER: ${ANALYTICS_DB_USER}
+      POSTGRES_PASSWORD: ${ANALYTICS_DB_PASSWORD}
+      POSTGRES_DB: ${ANALYTICS_DB_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ANALYTICS_DB_USER} -d ${ANALYTICS_DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - analytics_db_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    restart: unless-stopped
+
+  analytics-migrate:
+    image: migrate/migrate
+    container_name: analytics_migrate
+    volumes:
+      - ./analytics-service/migrations:/migrations
+    command:
+      - -path
+      - /migrations
+      - -database
+      - postgres://${ANALYTICS_DB_USER}:${ANALYTICS_DB_PASSWORD}@analytics_db:5432/${ANALYTICS_DB_NAME}?sslmode=disable
+      - up
+    depends_on:
+      analytics_db:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: "no"
+
+  analytics-service:
+    build:
+      context: .
+      dockerfile: analytics-service/Dockerfile
+    container_name: analytics_service
+    volumes:
+      - ./deploy/config/analytics-config.yaml:/app/config.yaml:ro
+    depends_on:
+      analytics-migrate:
+        condition: service_completed_successfully
+      project-migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+
+  notification_db:
+    image: postgres:16
+    container_name: notification_db
+    environment:
+      POSTGRES_USER: ${NOTIFICATION_DB_USER}
+      POSTGRES_PASSWORD: ${NOTIFICATION_DB_PASSWORD}
+      POSTGRES_DB: ${NOTIFICATION_DB_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${NOTIFICATION_DB_USER} -d ${NOTIFICATION_DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - notification_db_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    restart: unless-stopped
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: notification-service/Dockerfile
+    container_name: notification_service
+    volumes:
+      - ./deploy/config/notification-config.yaml:/app/config.yaml:ro
+    depends_on:
+      notification-migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+
+  notification-migrate:
+    image: migrate/migrate
+    container_name: notification_migrate
+    volumes:
+      - ./notification-service/migrations:/migrations
+    command:
+      - -path
+      - /migrations
+      - -database
+      - postgres://${NOTIFICATION_DB_USER}:${NOTIFICATION_DB_PASSWORD}@notification_db:5432/${NOTIFICATION_DB_NAME}?sslmode=disable
+      - up
+    depends_on:
+      notification_db:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: "no"
+
+volumes:
+  auth_db_data:
+  project_db_data:
+  analytics_db_data:
+  notification_db_data:
+
+networks:
+  backend:
+    driver: bridge

@@ -1,0 +1,11 @@
+.env
+.env.*
+!deploy/env.example
+
+deploy/config/auth-config.yaml
+deploy/config/gateway-config.yaml
+deploy/config/project-config.yaml
+deploy/config/analytics-config.yaml
+deploy/config/notification-config.yaml
+
+DEPLOYMENT.md
