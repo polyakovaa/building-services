@@ -32,9 +32,6 @@
 ```bash
 docker compose up --build
 ```
-
-**Продакшен на VPS:** см. [DEPLOYMENT.md](DEPLOYMENT.md) (`docker-compose.prod.yml`, `deploy/env.example`, конфиги в `deploy/config/`).
-
 ### Сборка одного сервиса
 
 ```bash
