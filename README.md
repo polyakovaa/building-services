@@ -186,7 +186,7 @@ migrate -path analytics-service/migrations \
 
 ---
 
-## Роли (кратко)
+## Роли
 
 | Роль | Возможности |
 |------|-------------|
