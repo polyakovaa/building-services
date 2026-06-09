@@ -70,7 +70,7 @@ protoc --proto_path=proto \
   proto/analytics/v1/analytics.proto
 ```
 
-Для остальных .proto — та же команда с нужным файлом или все файлы в proto/
+Для остальных .proto та же команда с нужным файлом или все файлы в proto/
 
 ### Миграции вручную
 
@@ -127,7 +127,7 @@ migrate -path analytics-service/migrations \
 | GET | /api/analytics/labor | План/факт трудоёмкости (group_by=total\|department\|activity\|project) |
 | GET | /api/analytics/freshness | Актуальность данных (last_event_at) |
 
-Доступ к аналитике: все роли кроме ROLE_WORKER. Справочники отделов/видов работ — страница Инструменты (/tools, директор и ГИП).
+Доступ к аналитике: все роли кроме ROLE_WORKER
 
 ### Уведомления
 
@@ -191,8 +191,8 @@ migrate -path analytics-service/migrations \
 | Роль | Возможности |
 |------|-------------|
 | ROLE_DIRECTOR | Вся аналитика, инструменты, все проекты |
-| ROLE_GIP | Аналитика, виды работ, свои проекты? некоторые доп. права |
-| ROLE_DEPARTMENT_MANAGER | Аналитика в рамках отдела |
+| ROLE_GIP | Аналитика, виды работ, инструменты, свои проекты, некоторые доп. права |
+| ROLE_DEPARTMENT_MANAGER | Проекты, аналитика в рамках отдела |
 |ROLE_PROJECT_MANAGER | Аналитика, виды работ, свои проекты |
 | ROLE_WORKER | Задачи; аналитика недоступна worker |
 
