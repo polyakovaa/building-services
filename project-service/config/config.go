@@ -3,7 +3,7 @@ package config
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"time"
 
@@ -68,6 +68,6 @@ func ConnectToDB(cfg DBConfig) (*sql.DB, error) {
 	db.SetMaxIdleConns(cfg.MaxIdleConns)
 	db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
 
-	log.Println("Successfully connected to postgres database")
+	slog.Info("database connected")
 	return db, nil
 }

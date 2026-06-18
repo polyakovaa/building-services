@@ -3,7 +3,6 @@ package activity
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -77,9 +76,7 @@ func (s *Service) CreateActivityType(ctx context.Context, req *projectv1.CreateA
 			"name":        at.Name,
 			"sort_order":  at.SortOrder,
 		}
-		if err := s.events.Publish(ctx, "activity_type.created", event); err != nil {
-			log.Printf("Failed to publish activity_type.created: %v", err)
-		}
+		_ = s.events.Publish(ctx, "activity_type.created", event)
 	}
 
 	return at, nil

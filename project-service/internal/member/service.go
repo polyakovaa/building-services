@@ -8,7 +8,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"building-services/project-service/internal/user"
@@ -80,7 +80,7 @@ func (s *Service) AddMember(ctx context.Context, req *projectv1.AddMemberRequest
 	}
 	if member.DepartmentId == "" {
 		if err := s.memberRepo.SyncDepartmentFromUser(ctx, req.ProjectId, req.UserId); err != nil {
-			log.Printf("sync member department: %v", err)
+			slog.Warn("sync member department failed", "project_id", req.ProjectId, "user_id", req.UserId, "error", err)
 		}
 		if updated, err := s.memberRepo.IsProjectMember(ctx, req.ProjectId, req.UserId); err == nil && updated != nil {
 			member.DepartmentId = updated.DepartmentId
@@ -99,9 +99,7 @@ func (s *Service) AddMember(ctx context.Context, req *projectv1.AddMemberRequest
 			"user_id":       member.UserId,
 			"department_id": member.DepartmentId,
 		}
-		if err := s.events.Publish(ctx, "project.member_added", event); err != nil {
-			log.Printf("Failed to publish project.member_added: %v", err)
-		}
+		_ = s.events.Publish(ctx, "project.member_added", event)
 	}
 
 	return member, nil
@@ -113,7 +111,7 @@ func (s *Service) projectName(ctx context.Context, projectID string) string {
 	}
 	project, err := s.projectRepo.FindByID(ctx, projectID)
 	if err != nil {
-		log.Printf("failed to enrich member event with project name: %v", err)
+		slog.Warn("failed to enrich member event with project name", "project_id", projectID, "error", err)
 		return ""
 	}
 	return project.Name
@@ -191,9 +189,7 @@ func (s *Service) RemoveMember(ctx context.Context, req *projectv1.RemoveMemberR
 			"project_id":    req.ProjectId,
 			"user_id":       req.UserId,
 		}
-		if err := s.events.Publish(ctx, "project.member_removed", event); err != nil {
-			log.Printf("Failed to publish project.member_removed: %v", err)
-		}
+		_ = s.events.Publish(ctx, "project.member_removed", event)
 	}
 
 	return &emptypb.Empty{}, nil

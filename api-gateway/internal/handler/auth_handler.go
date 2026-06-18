@@ -39,16 +39,9 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		Email    string `json:"email"`
 		Password string `json:"password"`
 		FullName string `json:"full_name"`
-		Role     string `json:"role"`
 	}
 	if err := c.BindJSON(&request); err != nil {
 		c.JSON(400, gin.H{"error": "Invalid request format"})
-		return
-	}
-
-	role, err := convertRole(request.Role)
-	if err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -59,7 +52,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		Email:    request.Email,
 		Password: request.Password,
 		FullName: request.FullName,
-		Role:     role,
+		Role:     authv1.Role_ROLE_WORKER,
 	})
 	if err != nil {
 		handleError(c, err)

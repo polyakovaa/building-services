@@ -1,4 +1,5 @@
 let toolsCurrentUser = null;
+let toolsDepartmentsCache = [];
 
 async function initializeTools() {
     try {
@@ -32,11 +33,16 @@ function setupToolsAdminCatalog(isDirector, isGip) {
     const section = document.getElementById('adminCatalogSection');
     const deptCard = document.getElementById('departmentAdminCard');
     const activityCard = document.getElementById('activityTypeAdminCard');
+    const staffCard = document.getElementById('departmentStaffCard');
     if (!section) return;
 
     section.style.display = 'block';
     if (isDirector && deptCard) deptCard.style.display = 'block';
     if ((isDirector || isGip) && activityCard) activityCard.style.display = 'block';
+    if (isDirector && staffCard) {
+        staffCard.style.display = 'block';
+        initDepartmentStaffCard();
+    }
 
     loadToolsCatalogLists(isDirector, isGip);
 
@@ -59,13 +65,19 @@ async function loadToolsCatalogLists(isDirector, isGip) {
     if (isDirector || isGip) await loadActivityTypesList();
 }
 
+async function fetchToolsDepartments() {
+    const response = await apiRequest('/api/departments');
+    if (!response.ok) throw new Error('departments');
+    const data = await response.json();
+    toolsDepartmentsCache = data.departments || data.Departments || [];
+    return toolsDepartmentsCache;
+}
+
 async function loadDepartmentsList() {
     const list = document.getElementById('departmentsList');
     if (!list) return;
     try {
-        const response = await apiRequest('/api/departments');
-        const data = await response.json();
-        const departments = data.departments || data.Departments || [];
+        const departments = await fetchToolsDepartments();
         if (!departments.length) {
             list.innerHTML = '<li class="admin-catalog-empty">Пока нет отделов</li>';
             return;
@@ -75,6 +87,169 @@ async function loadDepartmentsList() {
             .join('');
     } catch (err) {
         list.innerHTML = '<li class="admin-catalog-empty">Не удалось загрузить отделы</li>';
+    }
+}
+
+function fillStaffDepartmentSelect(selectEl, departments, selectedId) {
+    if (!selectEl) return;
+    selectEl.innerHTML = '';
+    if (!departments.length) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'Сначала создайте отдел';
+        selectEl.appendChild(opt);
+        selectEl.disabled = true;
+        return;
+    }
+    selectEl.disabled = false;
+    departments.forEach((d) => {
+        const opt = document.createElement('option');
+        opt.value = d.id;
+        opt.textContent = d.name || d.id;
+        if (selectedId && d.id === selectedId) opt.selected = true;
+        selectEl.appendChild(opt);
+    });
+}
+
+async function initDepartmentStaffCard() {
+    const deptSelect = document.getElementById('staffDepartmentId');
+    const userSelect = document.getElementById('staffUserId');
+    const userFilter = document.getElementById('staffUserFilter');
+    const staffList = document.getElementById('departmentStaffList');
+    if (!deptSelect || !userSelect || !staffList) return;
+
+    try {
+        const departments = await fetchToolsDepartments();
+        const prevDeptId = deptSelect.value;
+        fillStaffDepartmentSelect(deptSelect, departments, prevDeptId);
+    } catch (err) {
+        staffList.innerHTML = '<li class="admin-catalog-empty">Не удалось загрузить отделы</li>';
+        return;
+    }
+
+    const users = await findUsers('');
+    fillUserSelect(userSelect, users, '', 'Выберите пользователя');
+
+    if (userFilter && userFilter.dataset.bound !== '1') {
+        userFilter.addEventListener('input', () => filterUserSelect(userSelect, userFilter.value));
+        userFilter.dataset.bound = '1';
+    }
+    if (deptSelect.dataset.bound !== '1') {
+        deptSelect.addEventListener('change', () => loadDepartmentStaff());
+        deptSelect.dataset.bound = '1';
+    }
+
+    if (staffList.dataset.bound !== '1') {
+        staffList.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-remove-user-id]');
+            if (!btn) return;
+            const userId = btn.getAttribute('data-remove-user-id');
+            const deptId = deptSelect.value;
+            if (userId && deptId) removeUserFromDepartment(deptId, userId);
+        });
+        staffList.dataset.bound = '1';
+    }
+
+    if (deptSelect.value) {
+        await loadDepartmentStaff();
+    } else if (deptSelect.options.length && deptSelect.options[0].value) {
+        await loadDepartmentStaff();
+    } else {
+        staffList.innerHTML = '<li class="admin-catalog-empty">Нет отделов для назначения</li>';
+    }
+}
+
+function formatStaffUserLabel(user) {
+    const name = user.full_name || user.fullName || '';
+    const email = user.email || '';
+    if (name && email) return `${name} (${email})`;
+    return name || email || user.id || '';
+}
+
+async function loadDepartmentStaff() {
+    const deptSelect = document.getElementById('staffDepartmentId');
+    const list = document.getElementById('departmentStaffList');
+    if (!deptSelect || !list) return;
+
+    const deptId = deptSelect.value;
+    if (!deptId) {
+        list.innerHTML = '<li class="admin-catalog-empty">Выберите отдел</li>';
+        return;
+    }
+
+    list.innerHTML = '<li class="admin-catalog-empty">Загрузка…</li>';
+    try {
+        const response = await apiRequest(`/api/departments/${deptId}/users`);
+        if (!response.ok) throw new Error('staff');
+        const data = await response.json();
+        const users = data.users || [];
+        if (!users.length) {
+            list.innerHTML = '<li class="admin-catalog-empty">В отделе пока нет сотрудников</li>';
+            return;
+        }
+        list.innerHTML = users
+            .map((u) => {
+                const label = escapeToolsHtml(formatStaffUserLabel(u));
+                const userId = escapeToolsHtml(u.id || '');
+                return `<li class="admin-catalog-staff-row">
+                    <span>${label}</span>
+                    <button type="button" class="cancel-btn admin-catalog-staff-remove" data-remove-user-id="${userId}">Убрать</button>
+                </li>`;
+            })
+            .join('');
+    } catch (err) {
+        list.innerHTML = '<li class="admin-catalog-empty">Не удалось загрузить сотрудников</li>';
+    }
+}
+
+async function assignUserToDepartment() {
+    const deptSelect = document.getElementById('staffDepartmentId');
+    const userSelect = document.getElementById('staffUserId');
+    if (!deptSelect || !userSelect) return;
+
+    const deptId = deptSelect.value;
+    const userId = userSelect.value;
+    if (!deptId) {
+        showAdminCatalogMessage('Сначала создайте и выберите отдел', true);
+        return;
+    }
+    if (!userId) {
+        showAdminCatalogMessage('Выберите сотрудника', true);
+        return;
+    }
+
+    try {
+        const response = await apiRequest(`/api/departments/${deptId}/users/${userId}`, {
+            method: 'POST',
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error || err.message || 'Не удалось назначить сотрудника');
+        }
+        userSelect.value = '';
+        const filter = document.getElementById('staffUserFilter');
+        if (filter) filter.value = '';
+        showAdminCatalogMessage('Сотрудник назначен в отдел');
+        await loadDepartmentStaff();
+    } catch (err) {
+        showAdminCatalogMessage(err.message || 'Ошибка при назначении', true);
+    }
+}
+
+async function removeUserFromDepartment(deptId, userId) {
+    if (!deptId || !userId) return;
+    try {
+        const response = await apiRequest(`/api/departments/${deptId}/users/${userId}`, {
+            method: 'DELETE',
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error || err.message || 'Не удалось убрать сотрудника');
+        }
+        showAdminCatalogMessage('Сотрудник убран из отдела');
+        await loadDepartmentStaff();
+    } catch (err) {
+        showAdminCatalogMessage(err.message || 'Ошибка при удалении из отдела', true);
     }
 }
 
@@ -129,6 +304,9 @@ async function createDepartment() {
         input.value = '';
         showAdminCatalogMessage('Отдел добавлен');
         await loadDepartmentsList();
+        if (document.getElementById('departmentStaffCard')?.style.display !== 'none') {
+            await initDepartmentStaffCard();
+        }
     } catch (err) {
         showAdminCatalogMessage(err.message || 'Ошибка при создании отдела', true);
     }

@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -26,7 +26,7 @@ func NewUserConsumer(userRepo user.Repository, amqpURL string) (*UserConsumer, e
 		if err == nil {
 			break
 		}
-		log.Printf("Failed to connect to RabbitMQ (attempt %d/10): %v", i+1, err)
+		slog.Warn("rabbitmq connect retry", "attempt", i+1, "error", err)
 		time.Sleep(2 * time.Second)
 	}
 
@@ -72,21 +72,23 @@ func NewUserConsumer(userRepo user.Repository, amqpURL string) (*UserConsumer, e
 		return nil, err
 	}
 
-	return &UserConsumer{
-		userRepo: userRepo,
-		channel:  ch,
-		conn:     conn,
-	}, nil
+	slog.Info("user consumer ready", "queue", q.Name)
+	return &UserConsumer{userRepo: userRepo, channel: ch, conn: conn}, nil
 }
 
-func (c *UserConsumer) Start() error {
+func (c *UserConsumer) Start() {
 	msgs, err := c.channel.Consume(
 		"project_service_users",
 		"",
-		true, false, false, false, nil,
+		true,
+		false,
+		false,
+		false,
+		nil,
 	)
 	if err != nil {
-		return fmt.Errorf("Failed to consume: %v", err)
+		slog.Error("user consumer start failed", "error", err)
+		return
 	}
 
 	go func() {
@@ -94,8 +96,6 @@ func (c *UserConsumer) Start() error {
 			c.handleMessage(msg.Body)
 		}
 	}()
-
-	return nil
 }
 
 func (c *UserConsumer) handleMessage(body []byte) {
@@ -108,10 +108,10 @@ func (c *UserConsumer) handleMessage(body []byte) {
 		DepartmentID string `json:"department_id"`
 	}
 
-	log.Printf("recieved message: %s", body)
+	slog.Debug("user event received", "body", string(body))
 
 	if err := json.Unmarshal(body, &event); err != nil {
-		log.Printf("Failed to unmarshal: %v", err)
+		slog.Error("user event unmarshal failed", "error", err)
 		return
 	}
 
@@ -128,9 +128,9 @@ func (c *UserConsumer) handleMessage(body []byte) {
 			u.DepartmentID = &deptID
 		}
 		if err := c.userRepo.Upsert(context.Background(), u); err != nil {
-			log.Printf("Failed to upsert user: %v", err)
+			slog.Error("user upsert failed", "user_id", event.UserID, "error", err)
 		} else {
-			log.Printf("User %s upserted successfully", event.UserID)
+			slog.Info("user upserted", "user_id", event.UserID, "event_type", event.EventType)
 		}
 	}
 }

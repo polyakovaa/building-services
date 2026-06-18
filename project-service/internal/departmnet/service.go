@@ -3,7 +3,6 @@ package department
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	projectv1 "building-services/gen/project/v1"
@@ -92,9 +91,7 @@ func (s *Service) CreateDepartment(ctx context.Context, req *projectv1.CreateDep
 			"id":            dept.Id,
 			"name":          dept.Name,
 		}
-		if err := s.events.Publish(ctx, "department.created", event); err != nil {
-			log.Printf("Failed to publish department.created: %v", err)
-		}
+		_ = s.events.Publish(ctx, "department.created", event)
 	}
 
 	return dept, nil

@@ -3,25 +3,25 @@ package main
 import (
 	projectv1 "building-services/gen/project/v1"
 	"building-services/project-service/config"
+	"building-services/project-service/internal/activity"
 	"building-services/project-service/internal/attachment"
 	"building-services/project-service/internal/authz"
 	"building-services/project-service/internal/consumer"
-	"building-services/project-service/internal/activity"
 	department "building-services/project-service/internal/departmnet"
 	"building-services/project-service/internal/events"
 	"building-services/project-service/internal/member"
+	"building-services/project-service/internal/observability/logger"
 	"building-services/project-service/internal/project"
 	"building-services/project-service/internal/task"
 	"building-services/project-service/internal/timeline"
 	"building-services/project-service/internal/user"
-
 	"context"
-	"log"
+	"log/slog"
 	"net"
+	"os"
 	"time"
 
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 )
@@ -29,11 +29,20 @@ import (
 func main() {
 	cfg, err := config.LoadConfig("config.yaml")
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		slog.Error("config load failed", "error", err)
+		os.Exit(1)
 	}
+
+	env := os.Getenv("APP_ENV")
+	if env == "" {
+		env = "local"
+	}
+	logger.Init("project-service", env, cfg.Logging.Level)
+
 	db, err := config.ConnectToDB(cfg.Database)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		slog.Error("database connect failed", "error", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
@@ -49,7 +58,8 @@ func main() {
 
 	eventPublisher, err := events.NewEventPublisher("amqp://guest:guest@rabbitmq:5672/")
 	if err != nil {
-		log.Fatalf("Failed to create event publisher: %v", err)
+		slog.Error("event publisher init failed", "error", err)
+		os.Exit(1)
 	}
 	defer eventPublisher.Close()
 
@@ -71,7 +81,8 @@ func main() {
 
 	userConsumer, err := consumer.NewUserConsumer(userRepo, "amqp://guest:guest@rabbitmq:5672/")
 	if err != nil {
-		log.Fatalf("Failed to create consumer: %v", err)
+		slog.Error("user consumer init failed", "error", err)
+		os.Exit(1)
 	}
 	defer userConsumer.Close()
 	userConsumer.Start()
@@ -85,7 +96,7 @@ func main() {
 	projectv1.RegisterProjectMemberServiceServer(grpcServer, memberHandler)
 
 	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
-	log.Printf("Health server registered, status: %v", healthpb.HealthCheckResponse_SERVING)
+	slog.Info("health server registered", "status", healthpb.HealthCheckResponse_SERVING.String())
 
 	projectv1.RegisterProjectTimelineServiceServer(grpcServer, timelineHandler)
 	projectv1.RegisterTaskServiceServer(grpcServer, taskHandler)
@@ -95,17 +106,18 @@ func main() {
 
 	lis, err := net.Listen("tcp", ":"+cfg.Server.Port)
 	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
+		slog.Error("grpc listen failed", "error", err)
+		os.Exit(1)
 	}
 
-	log.Printf("Project service running on :%s", cfg.Server.Port)
+	slog.Info("grpc server started", "port", cfg.Server.Port)
 	go func() {
 		for {
 			ctx := context.Background()
 			dbErr := db.PingContext(ctx)
 			if dbErr != nil {
 				healthServer.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
-				log.Printf("Health check for Project service failed: %v", dbErr)
+				slog.Warn("health check failed", "error", dbErr)
 			} else {
 				healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 			}
@@ -114,6 +126,7 @@ func main() {
 	}()
 
 	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("Failed to serve: %v", err)
+		slog.Error("grpc serve failed", "error", err)
+		os.Exit(1)
 	}
 }

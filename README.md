@@ -1,3 +1,5 @@
+## Концепция
+
 Микросервисная система управления проектами компании по обследованию зданий: задачи, участники, таймлайн, уведомления и аналитика
 
 ```
@@ -93,7 +95,7 @@ migrate -path analytics-service/migrations \
 | Метод | Путь | Описание |
 |-------|------|----------|
 | POST | /login | Вход |
-| POST | /register | Регистрация |
+| POST | /register | Регистрация (всегда ROLE_WORKER) |
 | POST | /refresh | Обновление токена |
 | GET | /health | Состояние зависимых gRPC-сервисов |
 
@@ -142,6 +144,38 @@ migrate -path analytics-service/migrations \
 |-------|------|
 | GET | /admin/users |
 | PUT | /admin/users/:id/role |
+
+---
+
+## Безопасность и учётные записи
+
+### Модель ролей
+
+```
+POST /register    ROLE_WORKER (всегда, на UI и на бэкенде)
+ROLE_WORKER       свои задачи, проекты где пользователь участник
+ROLE_ADMIN        назначение ролей (PUT /admin/users/:id/role)
+ROLE_DIRECTOR, ROLE_GIP, ROLE_DEPARTMENT_MANAGER, ROLE_PROJECT_MANAGER  бизнес-права (аналитика, инструменты, проекты по authz)
+```
+
+- **Регистрация** (POST /register) создаёт только инженера (ROLE_WORKER). api-gateway и auth-service игнорируют попытку передать другую роль в API
+- **Повышение роли**  только у пользователя с ROLE_ADMIN через PUT /admin/users/:id/role (проверка в auth-service и middleware gateway)
+- **Директор** и остальные бизнес-роли не выдаются при регистрации; права проверяются в project-service/internal/authz
+
+### Первый администратор
+
+Администратор через публичную форму не создаётся
+
+1. Поднять стек: docker compose up -d --build
+2. Зарегистрироваться через UI (будет ROLE_WORKER)
+3. Один раз назначить админа в БД auth:
+
+```bash
+docker exec -it auth_db psql -U auth_user -d auth_db -c \
+  "UPDATE users SET role = 'ROLE_ADMIN' WHERE email = 'ваш@email.ru';"
+```
+
+4. Дальше роли назначать через PUT /admin/users/:id/role (нужен JWT админа)
 
 ---
 

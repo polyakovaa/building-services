@@ -376,6 +376,12 @@ tr:hover {
     margin-bottom: 24px;
 }
 
+.form-hint {
+    color: #64748b;
+    font-size: 12px;
+    margin: 6px 0 0;
+}
+
 .message {
     margin-top: 16px;
     padding: 10px;
@@ -751,9 +757,10 @@ tr:hover {
 }
 
 .admin-catalog-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    display: flex;
+    flex-direction: column;
     gap: 20px;
+    max-width: 640px;
 }
 
 .admin-catalog-card {
@@ -807,4 +814,35 @@ tr:hover {
 .admin-catalog-empty {
     color: #94a3b8;
     font-style: italic;
+}
+
+.admin-catalog-staff-hint {
+    color: #64748b;
+    font-size: 13px;
+    margin: 0 0 12px;
+    line-height: 1.4;
+}
+
+.admin-catalog-staff-list {
+    max-height: 240px;
+    margin-bottom: 14px;
+}
+
+.admin-catalog-staff-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.admin-catalog-staff-row span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.admin-catalog-staff-remove {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    font-size: 12px;
 }

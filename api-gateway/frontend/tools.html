@@ -71,6 +71,23 @@
                             </div>
                             <ul id="activityTypesList" class="admin-catalog-list"></ul>
                         </div>
+                        <div id="departmentStaffCard" class="admin-catalog-card" style="display:none;">
+                            <h3 class="admin-catalog-title">Сотрудники в отделах</h3>
+                            <p class="admin-catalog-staff-hint">Сотрудник может состоять только в одном отделе — при назначении в другой он будет переведён.</p>
+                            <div class="form-group">
+                                <label for="staffDepartmentId">Отдел</label>
+                                <select id="staffDepartmentId"></select>
+                            </div>
+                            <ul id="departmentStaffList" class="admin-catalog-list admin-catalog-staff-list"></ul>
+                            <div class="form-group">
+                                <label for="staffUserFilter">Назначить сотрудника</label>
+                                <input type="text" id="staffUserFilter" class="user-filter-input" placeholder="Фильтр по имени или email" autocomplete="off">
+                                <select id="staffUserId" class="user-picker-select" size="6">
+                                    <option value="">Выберите пользователя</option>
+                                </select>
+                            </div>
+                            <button type="button" class="save-btn" onclick="assignUserToDepartment()">Назначить в отдел</button>
+                        </div>
                     </div>
                 </div>
             </div>

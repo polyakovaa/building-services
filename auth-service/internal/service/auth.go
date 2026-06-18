@@ -102,7 +102,7 @@ func (s *AuthService) RegisterUser(ctx context.Context, username, email, passwor
 		FullName:     username,
 		Email:        email,
 		PasswordHash: string(hashed),
-		Role:         role,
+		Role:         "ROLE_WORKER",
 	}
 	user, err := s.userRepo.CreateUser(u)
 

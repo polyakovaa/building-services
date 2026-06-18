@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -16,8 +16,8 @@ type Publisher interface {
 }
 
 type EventPublisher struct {
-	channel *amqp.Channel
-	conn    *amqp.Connection
+	channel  *amqp.Channel
+	conn     *amqp.Connection
 	exchange string
 }
 
@@ -30,7 +30,7 @@ func NewEventPublisher(amqpURL string) (*EventPublisher, error) {
 		if err == nil {
 			break
 		}
-		log.Printf("Failed to connect to RabbitMQ (attempt %d/10): %v", i+1, err)
+		slog.Warn("rabbitmq connect retry", "attempt", i+1, "error", err)
 		time.Sleep(2 * time.Second)
 	}
 
@@ -59,6 +59,7 @@ func NewEventPublisher(amqpURL string) (*EventPublisher, error) {
 		return nil, err
 	}
 
+	slog.Info("rabbitmq publisher ready", "exchange", exchangeName)
 	return &EventPublisher{channel: ch, conn: conn, exchange: exchangeName}, nil
 }
 
@@ -67,9 +68,8 @@ func (p *EventPublisher) Publish(ctx context.Context, routingKey string, event m
 	if err != nil {
 		return err
 	}
-	log.Printf("published project event: key=%s body=%s", routingKey, body)
 
-	return p.channel.PublishWithContext(ctx,
+	err = p.channel.PublishWithContext(ctx,
 		p.exchange,
 		routingKey,
 		false,
@@ -79,6 +79,13 @@ func (p *EventPublisher) Publish(ctx context.Context, routingKey string, event m
 			Body:        body,
 		},
 	)
+	if err != nil {
+		slog.Error("event publish failed", "routing_key", routingKey, "error", err)
+		return err
+	}
+
+	slog.Info("event published", "routing_key", routingKey)
+	return nil
 }
 
 func (p *EventPublisher) Close() error {
@@ -98,4 +105,3 @@ func (p *EventPublisher) Close() error {
 	}
 	return nil
 }
-

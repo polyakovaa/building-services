@@ -12,7 +12,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -122,10 +122,10 @@ func (s *Service) CreateProject(ctx context.Context, req *projectv1.CreateProjec
 		JoinedAt:  timestamppb.Now(),
 	})
 	if err != nil {
-		log.Printf("failed to add creator as member: %v", err)
+		slog.Warn("failed to add creator as member", "project_id", project.Id, "user_id", userID, "error", err)
 	}
 	if err := s.timelineRepo.CreateEmpty(ctx, project.Id); err != nil {
-		log.Printf("failed to create timeline: %v", err)
+		slog.Warn("failed to create timeline", "project_id", project.Id, "error", err)
 	}
 
 	if s.events != nil {
@@ -143,7 +143,7 @@ func (s *Service) CreateProject(ctx context.Context, req *projectv1.CreateProjec
 			"status":         int32(project.Status),
 		}
 		if err := s.events.Publish(ctx, "project.created", event); err != nil {
-			log.Printf("Failed to publish project.created: %v", err)
+			_ = err
 		}
 	}
 
@@ -242,9 +242,7 @@ func (s *Service) UpdateProject(ctx context.Context, req *projectv1.UpdateProjec
 			"end_date":       tsToFormat(updatedProject.EndDate),
 			"status":         int32(updatedProject.Status),
 		}
-		if err := s.events.Publish(ctx, "project.updated", event); err != nil {
-			log.Printf("Failed to publish project.updated: %v", err)
-		}
+		_ = s.events.Publish(ctx, "project.updated", event)
 	}
 
 	return updatedProject, nil
@@ -318,9 +316,7 @@ func (s *Service) ChangeProjectStatus(ctx context.Context, req *projectv1.Change
 			"from_status":   int32(existingProject.Status),
 			"to_status":     int32(req.Status),
 		}
-		if err := s.events.Publish(ctx, "project.status_changed", event); err != nil {
-			log.Printf("Failed to publish project.status_changed: %v", err)
-		}
+		_ = s.events.Publish(ctx, "project.status_changed", event)
 	}
 
 	return updatedProject, nil

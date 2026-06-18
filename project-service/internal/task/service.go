@@ -9,7 +9,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"building-services/project-service/internal/events"
@@ -74,14 +74,14 @@ func (s *Service) CreateTask(ctx context.Context, req *projectv1.CreateTaskReque
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user_id: %w", err)
 	}
-	log.Printf("[DEBUG] CreateTask: userID=%s, projectID=%s", userID, req.ProjectId)
+	slog.Debug("create task", "user_id", userID, "project_id", req.ProjectId)
 
 	ok, err := s.authz.Check(ctx, userID, authz.ResourceTask, req.ProjectId, authz.ActionCreate)
 	if err != nil || !ok {
-		log.Printf("[DEBUG] CreateTask: permission denied for user %s on project %s: ok=%v, err=%v", userID, req.ProjectId, ok, err)
+		slog.Debug("create task permission denied", "user_id", userID, "project_id", req.ProjectId, "ok", ok, "error", err)
 		return nil, errs.ErrNoPermission
 	}
-	log.Printf("[DEBUG] CreateTask: permission granted for user %s on project %s", userID, req.ProjectId)
+	slog.Debug("create task permission granted", "user_id", userID, "project_id", req.ProjectId)
 
 	if req.AssignedTo == "" {
 		return nil, fmt.Errorf("%w:assigned name required", errs.ErrInvalidInput)
@@ -137,9 +137,7 @@ func (s *Service) CreateTask(ctx context.Context, req *projectv1.CreateTaskReque
 			"deadline": tsToFormat(task.Deadline),
 		}
 		s.applyLaborEventFields(event, task)
-		if err := s.events.Publish(ctx, "task.created", event); err != nil {
-			log.Printf("Failed to publish task.created: %v", err)
-		}
+		_ = s.events.Publish(ctx, "task.created", event)
 	}
 
 	return task, nil
@@ -249,9 +247,7 @@ func (s *Service) UpdateTask(ctx context.Context, req *projectv1.UpdateTaskReque
 			"assignee_email":         assigneeEmail,
 		}
 		s.applyLaborEventFields(event, updatedTask)
-		if err := s.events.Publish(ctx, "task.updated", event); err != nil {
-			log.Printf("Failed to publish task.updated: %v", err)
-		}
+		_ = s.events.Publish(ctx, "task.updated", event)
 	}
 
 	if s.events != nil && deadlineChanged(existing.Deadline, updatedTask.Deadline) {
@@ -272,9 +268,7 @@ func (s *Service) UpdateTask(ctx context.Context, req *projectv1.UpdateTaskReque
 			"old_deadline":           tsToFormat(existing.Deadline),
 			"new_deadline":           tsToFormat(updatedTask.Deadline),
 		}
-		if err := s.events.Publish(ctx, "task.deadline_changed", event); err != nil {
-			log.Printf("Failed to publish task.deadline_changed: %v", err)
-		}
+		_ = s.events.Publish(ctx, "task.deadline_changed", event)
 	}
 
 	return updatedTask, nil
@@ -369,9 +363,7 @@ func (s *Service) UpdateTaskStatus(ctx context.Context, req *projectv1.UpdateTas
 		if actualHours > 0 {
 			event["actual_hours"] = actualHours
 		}
-		if err := s.events.Publish(ctx, "task.status_changed", event); err != nil {
-			log.Printf("Failed to publish task.status_changed: %v", err)
-		}
+		_ = s.events.Publish(ctx, "task.status_changed", event)
 	}
 
 	return updated, nil
@@ -442,9 +434,7 @@ func (s *Service) UpdateTaskLabor(ctx context.Context, req *projectv1.UpdateTask
 			"status":                 int32(updated.Status),
 		}
 		s.applyLaborEventFields(event, updated)
-		if err := s.events.Publish(ctx, "task.updated", event); err != nil {
-			log.Printf("Failed to publish task.updated: %v", err)
-		}
+		_ = s.events.Publish(ctx, "task.updated", event)
 	}
 	return updated, nil
 }
@@ -543,9 +533,7 @@ func (s *Service) AssignTask(ctx context.Context, req *projectv1.AssignTaskReque
 			"deadline":           tsToFormat(task.Deadline),
 			"status":             int32(task.Status),
 		}
-		if err := s.events.Publish(ctx, "task.assigned", event); err != nil {
-			log.Printf("Failed to publish task.assigned: %v", err)
-		}
+		_ = s.events.Publish(ctx, "task.assigned", event)
 	}
 	return task, nil
 
@@ -578,7 +566,7 @@ func (s *Service) projectName(ctx context.Context, projectID string) string {
 	}
 	project, err := s.projectRepo.FindByID(ctx, projectID)
 	if err != nil {
-		log.Printf("failed to enrich task event with project name: %v", err)
+		slog.Warn("failed to enrich task event with project name", "project_id", projectID, "error", err)
 		return ""
 	}
 	return project.Name
