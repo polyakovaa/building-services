@@ -2,5 +2,5 @@
 .env.*
 !deploy/env.example
 
-deploy
+deploy/
 DEPLOYMENT.md
